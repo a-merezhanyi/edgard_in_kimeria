@@ -36,7 +36,9 @@ README. Runtime TMX/TSX maps, all five localization catalogs, fonts, audio,
 shaders, images, and the bundled Howler MIT notice remain present. The checker
 rejects source maps, TeaVM debug sidecars, Java source/classes, editor metadata,
 OS metadata, server/dev payloads, missing runtime sentinels, or a missing Howler
-license notice.
+license notice. To recheck an existing build directly, run
+`python3 tools/check_web_release_artifact.py`; it always validates the repository's
+fixed Pages upload directory.
 
 The clean BALANCED baseline was built from current `main` before these changes; the
 clean AGGRESSIVE artifact uses the same main base after the release and debug-mode

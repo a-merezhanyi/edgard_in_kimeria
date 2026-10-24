@@ -143,6 +143,5 @@ tasks.register<Exec>("verifyWebReleaseArtifact") {
     commandLine(
         if (System.getProperty("os.name").startsWith("Windows")) "python" else "python3",
         "tools/check_web_release_artifact.py",
-        releaseWebappDir.get().asFile.absolutePath,
     )
 }

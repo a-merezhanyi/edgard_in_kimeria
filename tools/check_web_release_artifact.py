@@ -3,6 +3,7 @@
 
 from __future__ import annotations
 
+import argparse
 import gzip
 import sys
 from pathlib import Path
@@ -85,10 +86,11 @@ def validate_release_artifact(root: Path) -> list[str]:
 
 
 def main() -> int:
-    if len(sys.argv) != 2:
-        print("usage: check_web_release_artifact.py PAGES_UPLOAD_DIRECTORY", file=sys.stderr)
-        return 2
-    errors = validate_release_artifact(Path(sys.argv[1]))
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.parse_args()
+    repo_root = Path(__file__).resolve().parents[1]
+    upload_directory = repo_root / "web/build/dist/js/release/webapp"
+    errors = validate_release_artifact(upload_directory)
     if errors:
         for error in errors:
             print(f"ERROR: {error}", file=sys.stderr)
