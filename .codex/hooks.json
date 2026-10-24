@@ -1,0 +1,42 @@
+{
+  "description": "Require authored sprites and named tuning/geometry parameters in changed production code.",
+  "hooks": {
+    "PostToolUse": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 \"$(git rev-parse --show-toplevel)/tools/check_sprite_art.py\" --hook",
+            "timeout": 10,
+            "statusMessage": "Checking sprite artwork policy"
+          },
+          {
+            "type": "command",
+            "command": "python3 \"$(git rev-parse --show-toplevel)/tools/check_named_parameters.py\" --hook",
+            "timeout": 10,
+            "statusMessage": "Checking named gameplay and artwork parameters"
+          }
+        ],
+        "matcher": "Bash|apply_patch|Edit|Write|exec_command|functions\\.exec"
+      }
+    ],
+    "Stop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 \"$(git rev-parse --show-toplevel)/tools/check_sprite_art.py\" --hook",
+            "timeout": 10,
+            "statusMessage": "Checking sprite artwork policy"
+          },
+          {
+            "type": "command",
+            "command": "python3 \"$(git rev-parse --show-toplevel)/tools/check_named_parameters.py\" --hook",
+            "timeout": 10,
+            "statusMessage": "Checking named gameplay and artwork parameters"
+          }
+        ]
+      }
+    ]
+  }
+}

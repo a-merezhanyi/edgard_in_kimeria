@@ -2,10 +2,10 @@ package com.jlogicsoftware.kimeria.entity.player;
 
 import com.badlogic.gdx.Gdx;
 import com.badlogic.gdx.Input;
-import com.badlogic.gdx.math.MathUtils;
 import com.badlogic.gdx.math.Rectangle;
 import com.badlogic.gdx.math.Vector2;
 import com.jlogicsoftware.kimeria.Assets;
+import com.jlogicsoftware.kimeria.SpriteSheets;
 import com.jlogicsoftware.kimeria.GameContext;
 import com.jlogicsoftware.kimeria.entity.Actor;
 import com.jlogicsoftware.kimeria.entity.Hitbox;
@@ -18,6 +18,15 @@ import com.jlogicsoftware.kimeria.entity.items.Collectable;
 import com.jlogicsoftware.kimeria.entity.items.Trigger;
 import com.jlogicsoftware.kimeria.entity.objects.Escalator;
 import com.jlogicsoftware.kimeria.input.KeyBindings;
+import com.jlogicsoftware.kimeria.input.GameplayInput;
+import com.jlogicsoftware.kimeria.entity.items.Carryable;
+import com.jlogicsoftware.kimeria.entity.items.Fireball;
+import com.jlogicsoftware.kimeria.entity.items.Lever;
+import com.jlogicsoftware.kimeria.localization.Msg;
+import com.badlogic.gdx.graphics.g2d.Batch;
+import com.jlogicsoftware.kimeria.ui.InteractionHighlight;
+import com.jlogicsoftware.kimeria.effects.Torch;
+import com.jlogicsoftware.kimeria.entity.Entity;
 import com.jlogicsoftware.kimeria.physics.CollideBody;
 import com.jlogicsoftware.kimeria.world.Level;
 
@@ -26,7 +35,7 @@ import java.util.Set;
 
 /** Port of Dart's {@code Player}. */
 public class Player extends Actor<Player.State> implements CollideBody {
-    public enum State {IDLE, RUNNING, JUMPING, FALLING, HIT, ATTACKING, APPEARING, DISAPPEARING, CLIMBING}
+    public enum State {IDLE, LOOK_UP, LOOK_DOWN, RUNNING, JUMPING, FALLING, HIT, ATTACKING, APPEARING, DISAPPEARING, CLIMBING}
 
     /**
      * Death and respawn, Katana Zero style. DYING: the world slows to a crawl so the player sees
@@ -34,6 +43,21 @@ public class Player extends Actor<Player.State> implements CollideBody {
      * player. ARRIVING (on the new player): the camera pans back while the sprite appears.
      */
     private enum RespawnPhase {NONE, DYING, RESETTING, ARRIVING}
+
+    private static final int FRAME_SIZE = SpriteSheets.PLAYER.width();
+    private static final float PICKUP_REACH = 3, PLACEMENT_GAP = 2;
+    private static final float FIREBALL_SPAWN_OFFSET_Y = 3;
+    private static final float HINT_PLAYER_OFFSET_Y = 12, HINT_TARGET_OFFSET_Y = 24;
+    private static final float CAMERA_TARGET_TOLERANCE = .001f;
+    private static final float MAX_PHYSICS_FRAME_SECONDS = .05f;
+    private record Clip(State state, int frames, int row, boolean loop) { }
+    private static final Clip[] CLIPS = {
+        new Clip(State.IDLE, 4, 9, true), new Clip(State.RUNNING, 4, 0, true),
+        new Clip(State.JUMPING, 1, 8, true), new Clip(State.FALLING, 1, 4, true),
+        new Clip(State.HIT, 2, 4, false), new Clip(State.ATTACKING, 7, 1, false),
+        new Clip(State.APPEARING, 4, 3, false), new Clip(State.DISAPPEARING, 4, 6, true),
+        new Clip(State.CLIMBING, 1, 3, true)
+    };
 
     private static final float STEP_TIME = 0.1f;
     private static final float MOVE_SPEED = 100f;
@@ -57,6 +81,13 @@ public class Player extends Actor<Player.State> implements CollideBody {
 
     public float horizontalMovement = 0f;
     private final JumpBuffer jumpBuffer = new JumpBuffer();
+    private final GameplayInput gameplayInput = new GameplayInput();
+    private final LookAround look = new LookAround();
+    private boolean lookLayout;
+    private Carryable carried;
+    private final Vector2 carryHintAnchor = new Vector2();
+    private final Vector2 carryHintCameraAnchor = new Vector2();
+    private boolean carryHintVisible;
     private final Set<Boss> bossesHit = new HashSet<>();
     private boolean victoryWalk;
     private boolean isAttacking = false;
@@ -78,7 +109,7 @@ public class Player extends Actor<Player.State> implements CollideBody {
     private final Vector2 startingPosition = new Vector2();
 
     public Player(Assets assets, GameContext game, float x, float y) {
-        super(x, y, 48, 48, State.class);
+        super(x, y, FRAME_SIZE, FRAME_SIZE, State.class);
         this.game = game;
         startingPosition.set(x, y);
         viewHalfWidth = game.logicalResolution().x / 2f;
@@ -88,16 +119,14 @@ public class Player extends Actor<Player.State> implements CollideBody {
     }
 
     private void loadAnimations(Assets assets) {
-        String img = "images/hero/Player.png";
-        putAnimation(State.IDLE, assets.animation(img, 4, STEP_TIME, 48, 48, 0, 48 * 9), true);
-        putAnimation(State.RUNNING, assets.animation(img, 4, STEP_TIME, 48, 48, 0, 0), true);
-        putAnimation(State.JUMPING, assets.animation(img, 1, STEP_TIME, 48, 48, 0, 48 * 8), true);
-        putAnimation(State.FALLING, assets.animation(img, 1, STEP_TIME, 48, 48, 0, 48 * 4), true);
-        putAnimation(State.HIT, assets.animation(img, 2, STEP_TIME, 48, 48, 0, 48 * 4), false);
-        putAnimation(State.ATTACKING, assets.animation(img, 7, STEP_TIME, 48, 48, 0, 48 * 1), false);
-        putAnimation(State.APPEARING, assets.animation(img, 4, STEP_TIME, 48, 48, 0, 48 * 3), false);
-        putAnimation(State.DISAPPEARING, assets.animation(img, 4, STEP_TIME, 48, 48, 0, 48 * 6), true);
-        putAnimation(State.CLIMBING, assets.animation(img, 1, STEP_TIME, 48, 48, 0, 48 * 3), true);
+        for (Clip clip : CLIPS) {
+            putAnimation(clip.state(), assets.animation(SpriteSheets.PLAYER.path(), clip.frames(), STEP_TIME,
+                FRAME_SIZE, FRAME_SIZE, 0, FRAME_SIZE * clip.row()), clip.loop());
+        }
+        putAnimation(State.LOOK_UP, new com.badlogic.gdx.graphics.g2d.Animation<>(STEP_TIME,
+            SpriteSheets.PLAYER_LOOK.frame(assets, 0, 0)), false);
+        putAnimation(State.LOOK_DOWN, new com.badlogic.gdx.graphics.g2d.Animation<>(STEP_TIME,
+            SpriteSheets.PLAYER_LOOK.frame(assets, 1, 0)), false);
     }
 
     public void setLevel(Level level) {
@@ -106,6 +135,9 @@ public class Player extends Actor<Player.State> implements CollideBody {
 
     /** Called once by {@link Level} right after the player is placed at its spawn point. */
     public void spawned() {
+        carried = null;
+        carryHintVisible = false;
+        look.clear();
         resetJumpInput();
         startingPosition.set(position);
         resetCamera();
@@ -165,7 +197,6 @@ public class Player extends Actor<Player.State> implements CollideBody {
             handleRespawnPhase();
             return;
         }
-        updateCameraPosition();
         if (isReachedCheckpoint) {
             tickAnimation(dt);
             checkpointTimer -= dt;
@@ -190,6 +221,19 @@ public class Player extends Actor<Player.State> implements CollideBody {
         // has no networked/replay determinism requirement that would need
         // fixed steps.
         float stepDt = Math.min(dt, 0.05f);
+        if (lookLayout != game.leftHanded()) {
+            look.suppress();
+            lookLayout = game.leftHanded();
+        }
+        boolean jumpHeld = KeyBindings.of(game.leftHanded()).jumpHeld()
+            || game.gamepad().jumpHeld() || game.touch().jumpHeld();
+        boolean inspecting = !jumpHeld && onGround && horizontalMovement == 0 && !wallJumping && !clambering
+            && !isAttacking && !jumpBuffer.pending() && !victoryWalk;
+        // Give pickup/activation chords extra time before inspection moves their target.
+        // Use real eligibility: pressing Up can hide the pickup label without changing reach.
+        boolean interactionAvailable = inspecting && (selectedCarryable() != null || selectedMechanism() != null);
+        look.update(stepDt, inspecting ? gameplayInput.lookDirection() : 0,
+            gameplayInput.verticalHeld(), interactionAvailable);
         previousFeetY = position.y + hitbox.offsetY + hitbox.height;
         previousBodyX = position.x + hitbox.offsetX;
         checkAttackCollisions(stepDt);
@@ -203,6 +247,7 @@ public class Player extends Actor<Player.State> implements CollideBody {
         tryJump(0f);
         checkGameplayOverlaps();
 
+        updateCameraPosition();
         tickAnimation(dt);
     }
 
@@ -226,7 +271,15 @@ public class Player extends Actor<Player.State> implements CollideBody {
     private void updateCameraPosition() {
         // centerX() ignores facing, unlike the hitbox, so turning in place can't nudge the zone.
         cameraFocusX = clampToZone(cameraFocusX, centerX(), hitbox.width * DEAD_ZONE_WIDTH_FACTOR);
-        game.moveCameraTo(cameraTarget(cameraFocusX, position.y), CAMERA_CHASE_SPEED);
+        Vector2 target = cameraTarget(cameraFocusX, position.y);
+        // Deliberate inspection is a vertical exception to the ordinary room clamp.
+        // Current rooms are only 8px taller than the viewport; clamping the peek would erase it.
+        target.y += look.offset();
+        // Compare the room-clamped camera target, not distance walked or screen shake.
+        // Crossing a dead-zone edge at a room boundary does not scroll the view.
+        if (carried != null && carryHintVisible && !game.isCameraPanning()
+            && !target.epsilonEquals(carryHintCameraAnchor, CAMERA_TARGET_TOLERANCE)) carryHintVisible = false;
+        game.moveCameraTo(target, look.cameraSpeed(CAMERA_CHASE_SPEED));
     }
 
     /** Re-centres the dead zone on the player and pans the camera there (level start, respawn). */
@@ -280,39 +333,219 @@ public class Player extends Actor<Player.State> implements CollideBody {
 
         jumpBuffer.update(Gdx.graphics.getDeltaTime(), keys.jumpHeld(), gamepad.jumpHeld(), touch.jumpHeld());
 
-        // The one "other" button: interacts inside a trigger zone, attacks everywhere else.
-        if (keys.actionJustPressed() || gamepad.actionPressed() || touch.actionPressed()) {
-            if (canInteract()) {
-                interact();
-            } else if (!isAttacking && onGround && !jumpBuffer.pending() && !clambering) {
-                isAttacking = true;
+        gameplayInput.update(game.leftHanded(), gamepad, touch);
+        if (gameplayInput.actionPressed()) {
+            // Conflicting directions consume the press without attacking or interacting.
+            if (gameplayInput.up() && gameplayInput.down()) { /* wait for an unambiguous press */ }
+            else if (gameplayInput.down()) pickUpOrPlace();
+            else if (gameplayInput.up()) {
+                Trigger target = selectedMechanism();
+                if (target != null) level.activateTrigger(target);
+            } else if (!isAttacking && onGround && !jumpBuffer.pending() && !clambering) isAttacking = true;
+        }
+        if (gameplayInput.rangedPressed()) shoot();
+    }
+
+    public boolean canInteract() { return selectedMechanism() != null; }
+    public Carryable carriedObject() { return carried; }
+
+    // Free/front palm, measured on the original 48x48 Player.png animation frames.
+    private static final int[][] IDLE_GRIP = {{31, 34}, {31, 35}, {31, 34}, {31, 32}};
+    private static final int[][] RUN_GRIP = {{29, 34}, {24, 33}, {32, 34}, {24, 33}};
+    private static final int[] JUMP_GRIP = {21, 17}, FALL_GRIP = {27, 32};
+    private static final int[][] ATTACK_GRIP = {{31, 34}, {22, 28}, {25, 31}, {24, 32}, {29, 32}, {28, 32}, {27, 32}};
+
+    /** Attachment follows the authored pose and the same body pivot as Actor.render. */
+    public void heldObjectGrip(Vector2 out) {
+        var animation = animations.get(current);
+        int frame = animation == null ? 0 : animation.getKeyFrameIndex(stateTime);
+        int[] grip = switch (current) {
+            case IDLE -> IDLE_GRIP[frame % IDLE_GRIP.length];
+            case LOOK_UP, LOOK_DOWN -> IDLE_GRIP[0];
+            case RUNNING -> RUN_GRIP[frame % RUN_GRIP.length];
+            case ATTACKING -> ATTACK_GRIP[frame % ATTACK_GRIP.length];
+            case JUMPING -> JUMP_GRIP;
+            case FALLING, HIT -> FALL_GRIP;
+            default -> IDLE_GRIP[0];
+        };
+        out.set(position.x + (facingRight ? grip[0] : 2 * pivotX() - grip[0]), position.y + grip[1]);
+    }
+
+    @Override public void render(Batch batch) {
+        super.render(batch);
+        if (carried != null) carried.renderHeld(batch);
+    }
+    public int ammunition() { return level.rangedStock.count(); }
+    public float verticalMovement() { return gameplayInput.verticalMovement(); }
+
+    private float targetDistance(com.jlogicsoftware.kimeria.entity.Entity target) {
+        Rectangle b = hitboxBounds();
+        float dx = target.centerX() - (b.x + b.width / 2), dy = target.centerY() - (b.y + b.height / 2);
+        return dx * dx + dy * dy;
+    }
+
+    public Trigger selectedMechanism() {
+        if (level == null || !canFight()) return null;
+        Trigger best = null;
+        for (Trigger target : level.triggers) {
+            if (target.isRemoved() || !overlapsEntity(target)) continue;
+            if (best == null || targetDistance(target) < targetDistance(best)
+                || (targetDistance(target) == targetDistance(best) && target.id < best.id)) best = target;
+        }
+        return best;
+    }
+
+    public Carryable selectedCarryable() {
+        if (level == null || carried != null || !canFight()) return null;
+        Rectangle reach = new Rectangle(hitboxBounds());
+        // A small hand/contact tolerance, not a remote interaction radius.
+        reach.x -= PICKUP_REACH; reach.y -= PICKUP_REACH;
+        reach.width += PICKUP_REACH * 2; reach.height += PICKUP_REACH * 2;
+        Carryable best = null;
+        for (var object : level.objects) if (object instanceof Carryable target && target.available() && reach.overlaps(target.bounds())) {
+            if (best == null || targetDistance(target) < targetDistance(best)
+                || (targetDistance(target) == targetDistance(best) && target.id < best.id)) best = target;
+        }
+        return best;
+    }
+
+    private Rectangle placementBounds() {
+        Rectangle body = hitboxBounds();
+        return new Rectangle(facingRight ? body.x + body.width + PLACEMENT_GAP : body.x - (Carryable.BODY_SIZE + PLACEMENT_GAP),
+            body.y + body.height - Carryable.BODY_SIZE, Carryable.BODY_SIZE, Carryable.BODY_SIZE);
+    }
+
+    private void pickUpOrPlace() {
+        if (!canFight() || isAttacking || clambering) return;
+        if (carried != null) {
+            Rectangle place = placementBounds();
+            if (level.blocksObject(place, true)) return;
+            carried.release(place.x, place.y, false, facingRight);
+            carried = null;
+        } else {
+            Carryable target = selectedCarryable();
+            if (target != null) {
+                carried = target;
+                carryHintAnchor.set(centerX(), getY() + HINT_PLAYER_OFFSET_Y);
+                carryHintCameraAnchor.set(cameraTarget(cameraFocusX, position.y));
+                carryHintVisible = true;
+                carried.pickUp(this);
             }
         }
-
-        if (keys.shootJustPressed() || gamepad.shootPressed() || touch.shootPressed()) {
-            shoot();
-        }
     }
 
-    /** Whether the action button currently interacts (player is inside a {@link Trigger} zone) rather than attacks. */
-    public boolean canInteract() {
-        return !collideWithTriggerId.isEmpty();
-    }
-
-    private void interact() {
-        for (Trigger trigger : level.triggers) {
-            if (trigger.targetId.equals(collideWithTriggerId)) {
-                level.activateTrigger(trigger);
-            }
-        }
-    }
-
-    /** Shoot button hook: the ranged attack (fireball or throwing knife) is a separate, not yet built feature. */
+    /** Selection happens once: dropping the reference after a throw cannot fall through to a fireball. */
     private void shoot() {
+        if (!canFight()) return;
+        if (carried != null) {
+            carried.followHolder();
+            carried.release(carried.getX(), carried.getY(), true, facingRight);
+            carried = null;
+        } else if (level.rangedStock.spend()) {
+            Rectangle body = hitboxBounds();
+            level.queueSpawn(new Fireball(level, body.x + (body.width - Fireball.BODY_SIZE) / 2, body.y + FIREBALL_SPAWN_OFFSET_Y, facingRight));
+        }
+    }
+
+    public Msg actionLabel() {
+        if (gameplayInput.up() && gameplayInput.down()) return Msg.DIRECTION_CONFLICT;
+        if (gameplayInput.down()) return carried == null ? Msg.PICK_UP :
+            level.blocksObject(placementBounds(), true) ? Msg.PLACE_BLOCKED : Msg.PUT_DOWN;
+        return gameplayInput.up() ? mechanismAction(selectedMechanism()) : Msg.ATTACK;
+    }
+
+    private Msg mechanismAction(Trigger trigger) {
+        return level != null && level.mechanismFeedbackTarget(trigger) instanceof Lever lever
+            ? lever.isUp() ? Msg.TURN_OFF : Msg.TURN_ON : Msg.INTERACT;
+    }
+
+    private Msg mechanismLabel(Trigger trigger) {
+        Entity target = level.mechanismFeedbackTarget(trigger);
+        return target instanceof Lever ? Msg.LEVER : target instanceof Torch ? Msg.TORCH : Msg.MECHANISM;
+    }
+    public Msg rangedLabel() { return carried != null ? Msg.THROW : ammunition() > 0 ? Msg.FIREBALL : Msg.NO_AMMO; }
+
+    public String actionPrompt() {
+        String target = "";
+        Msg action = actionLabel();
+        if (action == Msg.PICK_UP && selectedCarryable() != null) target = " - " + selectedCarryable().label().t(game.language());
+        if (action == Msg.PUT_DOWN || action == Msg.PLACE_BLOCKED) target = " - " + carried.label().t(game.language());
+        if ((action == Msg.INTERACT || action == Msg.TURN_ON || action == Msg.TURN_OFF) && selectedMechanism() != null)
+            target = " - " + mechanismLabel(selectedMechanism()).t(game.language());
+        return actionBinding(false) + ": " + action.t(game.language()) + target;
+    }
+    public String rangedPrompt() {
+        return actionBinding(true) + ": " + rangedLabel().t(game.language());
+    }
+    private String actionBinding(boolean ranged) {
+        return actionBinding(ranged, gameplayInput.up(), gameplayInput.down());
+    }
+
+    /** Contextual teaching remains repeatable throughout the first room, including while carrying. */
+    public String contextHint() {
+        if (level == null || !level.tutorialHintsActive() || !canFight() || isAttacking
+            || (gameplayInput.up() && gameplayInput.down())) return "";
+        if (carried != null) {
+            Trigger mechanism = selectedMechanism();
+            if (!carryHintVisible) return mechanism == null ? "" : mechanismHint(mechanism);
+            String place = actionBinding(false, false, true) + ": " + Msg.PUT_DOWN.t(game.language());
+            if (level.blocksObject(placementBounds(), true)) place += " - " + Msg.PLACE_BLOCKED.t(game.language());
+            String carrying = place + "\n" + rangedPrompt();
+            return mechanism == null ? carrying : mechanismHint(mechanism) + "\n" + carrying;
+        }
+        if (gameplayInput.down()) return selectedCarryable() == null ? "" : actionPrompt();
+        if (gameplayInput.up()) return selectedMechanism() == null ? "" : actionPrompt();
+        Carryable pickup = selectedCarryable();
+        if (pickup != null) return actionBinding(false, false, true) + ": " + Msg.PICK_UP.t(game.language()) + " - " + pickup.label().t(game.language());
+        if (selectedMechanism() != null) return mechanismHint(selectedMechanism());
+        return "";
+    }
+
+    private String mechanismHint(Trigger mechanism) {
+        return actionBinding(false, true, false) + ": " + mechanismAction(mechanism).t(game.language())
+            + " - " + mechanismLabel(mechanism).t(game.language());
+    }
+
+    /** Mechanisms keep their local anchor even when the hero already carries another object. */
+    public void contextHintPosition(Vector2 out) {
+        if (carried != null && selectedMechanism() == null) { out.set(carryHintAnchor); return; }
+        Entity target = gameplayInput.up() ? level.mechanismFeedbackTarget(selectedMechanism()) : selectedCarryable();
+        if (target == null) target = level.mechanismFeedbackTarget(selectedMechanism());
+        out.set(target == null ? centerX() : target.centerX(),
+            target == null ? getY() + HINT_PLAYER_OFFSET_Y : Math.min(target.getY() - HINT_TARGET_OFFSET_Y, getY() + HINT_PLAYER_OFFSET_Y));
+    }
+
+    private String actionBinding(boolean ranged, boolean up, boolean down) {
+        var keys = KeyBindings.of(game.leftHanded());
+        var lang = game.language();
+        String direction = "";
+        if (!ranged && (up || down)) direction = switch (gameplayInput.device()) {
+            case KEYBOARD -> up && down ? keys.upName() + "/" + keys.downName() : up ? keys.upName() : keys.downName();
+            case GAMEPAD -> (game.leftHanded() ? Msg.RIGHT_STICK : Msg.LEFT_STICK).t(lang) + " " + (up ? Msg.UP : Msg.DOWN).t(lang);
+            case TOUCH -> Msg.STICK.t(lang) + " " + (up ? Msg.UP : Msg.DOWN).t(lang);
+        };
+        String button = switch (gameplayInput.device()) {
+            case KEYBOARD -> ranged ? keys.rangedName() : keys.actionName();
+            case GAMEPAD -> game.leftHanded() ? (ranged ? Msg.DPAD_UP : Msg.DPAD_ACTION).t(lang) : ranged ? "Y" : "X/B";
+            case TOUCH -> (ranged ? Msg.SHOOT : Msg.ACTION).t(lang);
+        };
+        return direction.isEmpty() ? button : direction + " + " + button;
+    }
+
+    public Entity interactionFeedbackTarget() {
+        if (!canFight()) return null;
+        return gameplayInput.up() && !gameplayInput.down() ? level.mechanismFeedbackTarget(selectedMechanism())
+            : gameplayInput.down() && !gameplayInput.up() ? selectedCarryable() : null;
+    }
+
+    public void renderInteractionTarget(Batch batch) {
+        Entity target = interactionFeedbackTarget();
+        if (target == null) return;
+        InteractionHighlight.draw(batch, target);
     }
 
     private void updatePlayerState() {
-        State next = State.IDLE;
+        State next = look.direction() < 0 ? State.LOOK_UP : look.direction() > 0 ? State.LOOK_DOWN : State.IDLE;
 
         if (horizontalMovement < 0 && facingRight) {
             facingRight = false;
@@ -381,6 +614,8 @@ public class Player extends Actor<Player.State> implements CollideBody {
     /** Used at gameplay boundaries so held or queued menu/death input cannot jump. */
     public void resetJumpInput() {
         jumpBuffer.reset();
+        gameplayInput.reset();
+        look.suppress();
     }
 
     /**
@@ -496,7 +731,6 @@ public class Player extends Actor<Player.State> implements CollideBody {
     private void checkGameplayOverlaps() {
         if (isReachedCheckpoint) return;
 
-        boolean touchingTrigger = false;
         for (var obj : level.objects) {
             if (obj instanceof Collectable c && overlapsEntity(c)) {
                 c.collideWithPlayer();
@@ -506,12 +740,10 @@ public class Player extends Actor<Player.State> implements CollideBody {
                 reachedCheckpoint();
             } else if (obj instanceof Bomb bomb && hitboxBounds().overlaps(bomb.hitboxBounds())) {
                 bomb.collideWithPlayer();
-            } else if (obj instanceof Trigger trigger && overlapsEntity(trigger)) {
-                touchingTrigger = true;
-                collideWithTriggerId = trigger.targetId;
             }
         }
-        if (!touchingTrigger) collideWithTriggerId = "";
+        Trigger selected = selectedMechanism();
+        collideWithTriggerId = selected == null ? "" : selected.targetId;
     }
 
     private boolean overlapsEntity(com.jlogicsoftware.kimeria.entity.Entity other) {
