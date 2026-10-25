@@ -69,7 +69,7 @@ def python_violations(path, source, added=None):
 
 
 def git(root, *args):
-    return subprocess.check_output(['git', '-C', str(root), *args], text=True, stderr=subprocess.PIPE)
+    return subprocess.check_output(['git', '-C', str(root), *args], text=True, encoding='utf-8', stderr=subprocess.PIPE)
 
 
 def changed_lines(root, base):
@@ -109,9 +109,9 @@ def check(root, base='HEAD'):
         if not file.is_file():
             continue
         if path.endswith('.java'):
-            issues.extend(java_violations(path, file.read_text(), added))
+            issues.extend(java_violations(path, file.read_text(encoding='utf-8'), added))
         elif path.endswith('.py'):
-            issues.extend(python_violations(path, file.read_text(), added))
+            issues.extend(python_violations(path, file.read_text(encoding='utf-8'), added))
     return issues
 
 

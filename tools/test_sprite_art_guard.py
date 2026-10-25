@@ -8,11 +8,62 @@ import sys
 import struct
 import tempfile
 import unittest
+from unittest import mock
 
 import check_sprite_art as guard
+import check_named_parameters as named_parameters
 
 
 class SpriteArtGuardTest(unittest.TestCase):
+    def test_source_guards_read_utf8_under_windows_legacy_default(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            java_dir = root / guard.BASE
+            java_dir.mkdir(parents=True)
+            tools_dir = root / 'tools'
+            tools_dir.mkdir()
+
+            # U+0141 encodes to C5 81; 0x81 is undefined in Windows cp1252.
+            (java_dir / 'Unicode.java').write_bytes(
+                'public class Unicode { // Ł\n int area = 5; }\n'.encode('utf-8'))
+            (tools_dir / 'unicode.py').write_bytes('# Ł\nfrom PIL import Image\nvalue = 5\n'.encode('utf-8'))
+            (tools_dir / 'Unicode.java').write_bytes('// Ł\nclass UnicodeTool {}\n'.encode('utf-8'))
+
+            real_read_text = Path.read_text
+
+            def windows_default(path, encoding=None, errors=None):
+                if encoding is None:
+                    encoding = 'cp1252'
+                return real_read_text(path, encoding=encoding, errors=errors)
+
+            with mock.patch.object(Path, 'read_text', windows_default):
+                self.assertEqual([], guard.check(root))
+
+                (java_dir / 'Unicode.java').write_bytes(
+                    'public class Unicode { int area = 5; public void render(Batch batch) { SoftDot.region(); } // Ł\n}'.encode('utf-8'))
+                issues = guard.check(root)
+                self.assertTrue(any('procedural particle' in issue for issue in issues))
+
+                with mock.patch.object(named_parameters, 'changed_lines', return_value={
+                    f'{guard.BASE}Unicode.java': None,
+                    'tools/unicode.py': None,
+                }):
+                    issues = named_parameters.check(root)
+
+            self.assertEqual(2, len(issues))
+            self.assertTrue(any('name parameter 5' in issue for issue in issues))
+            self.assertTrue(any('name artwork/export parameter 5' in issue for issue in issues))
+
+    def test_source_guard_rejects_malformed_utf8(self):
+        with tempfile.TemporaryDirectory() as directory:
+            java_dir = Path(directory) / guard.BASE
+            java_dir.mkdir(parents=True)
+            (java_dir / 'Invalid.java').write_bytes(b'public class Invalid { // \xff\n}')
+            with mock.patch.object(sys, 'argv', [guard.__file__, '--root', directory]):
+                with contextlib.redirect_stderr(io.StringIO()) as errors:
+                    self.assertEqual(2, guard.main())
+            self.assertIn('Sprite art guard could not run', errors.getvalue())
+
     def test_world_and_hud_are_different_png_contracts(self):
         def metadata(size, mode=3, alpha=b'\x00\xff', colors=16):
             # Metadata-only fixture, not an artwork generator.

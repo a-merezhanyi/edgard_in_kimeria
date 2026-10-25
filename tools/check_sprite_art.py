@@ -148,11 +148,11 @@ def check(root):
         raise ValueError(f'Java source directory is missing: {directory}')
     issues = []
     for path in sorted(directory.rglob('*.java')):
-        issues.extend(violations(path.relative_to(directory).as_posix(), path.read_text()))
+        issues.extend(violations(path.relative_to(directory).as_posix(), path.read_text(encoding='utf-8')))
     for path in sorted((root / 'tools').rglob('*.py')):
-        issues.extend(python_art_violations(path.relative_to(root).as_posix(), path.read_text()))
+        issues.extend(python_art_violations(path.relative_to(root).as_posix(), path.read_text(encoding='utf-8')))
     for path in sorted((root / 'tools').rglob('*.java')):
-        code = code_only(path.read_text())
+        code = code_only(path.read_text(encoding='utf-8'))
         for match in re.finditer(r'\.\s*(?:fillRect|fillOval|fillPolygon|drawLine|drawOval|drawPolygon|setRGB)\s*\(', code):
             issues.append(f'{path.relative_to(root)}:{code.count(chr(10), 0, match.start()) + 1}: shape painting is not an authored sprite export')
     if (root / 'assets').is_dir():
