@@ -690,3 +690,28 @@ Authored checkpoints cannot bypass boss defeat or its victory walk. See [BOSS.md
 - **Details:** [Campaign design](GAME_DESIGN.md#observe-plan-and-commit-d26),
   [room-authoring contract](ROOMS.md#puzzle-platformer-authoring-contract-d26),
   [state boundaries](HEALER.md#state-policy), [#158](https://github.com/jlogicgames/edgard_in_kimeria/issues/158).
+
+
+## D27. Three held fireballs and rare single-charge refills
+
+- **Status:** Accepted by the author, 2026-10-25 (#98); implemented in PR #168,
+  merged on 2026-10-25.
+- **Decision:** Keep the test run's initial stock at three and cap held stock at
+  three. Carry the remainder between levels. This replaces the tentative “three
+  uses per stage” assumption with a capacity rule: authored refills can permit
+  more than three shots over a stage, while keeping no more than three at once.
+- **Pickups:** Place one before the first level's boss-room entrance and one above
+  a moving platform in the second level. Body contact grants exactly one charge.
+  At full stock, retain the pickup and show a local full-inventory message using
+  the existing torch/lever hint animation, in every room. Ammunition remains
+  separate from recipe artifacts and the one visible carryable slot.
+- **HUD:** Three fixed icons at the top right, no number; missing charges are
+  darkened. Preserve development FPS spacing and separate world/HUD artwork.
+- **Recovery:** Record authored refill IDs with room pickups; roll provisional
+  stock and identity back together on death, retain secured identities on healer
+  returns, and restore entry stock/authored objects on Restart Level. No save fields.
+- **Why:** Make scarce ranged capacity readable at a glance, offer a deliberate
+  optional jump reward and pre-boss replenishment, and avoid wasting full-stock
+  pickups or farming charges through room returns. Required routes need no shots.
+- **Details:** [Rules and audit](DIRECTIONAL_CONTROLS.md#fireball-refills-98),
+  [placements and route evidence](ROOMS.md), [gameplay](GAMEPLAY.md).

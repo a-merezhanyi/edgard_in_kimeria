@@ -162,7 +162,7 @@ prompts. `RangedStock` owns run/level ammunition; `Level` snapshots room stock.
 - [x] Falling platform — warning torch, delay, drop; carries the player down without
       losing contact
 - [x] Escalator — patrol, carries the player (including vertically), trigger toggles it
-- [x] Directional actions (#95), one carried stone/portable torch, deliberate throwing and consumable fireballs; see [contract and dependencies](DIRECTIONAL_CONTROLS.md)
+- [x] Directional actions (#95), one carried stone/portable torch, deliberate throwing and consumable fireballs with two authored +1 refills, capacity three, full-stock hints and a three-icon HUD; see [contract and dependencies](DIRECTIONAL_CONTROLS.md)
 - [x] Trigger → actionable wall removal and torch toggle via Up + Action
 - [x] Checkpoint → next level or ending; death in slow motion, then an instant room reset and respawn (no lives)
 - [x] Torch, firefly and rain ambience; fog only in menus

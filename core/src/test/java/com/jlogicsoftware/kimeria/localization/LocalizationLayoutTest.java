@@ -53,6 +53,7 @@ class LocalizationLayoutTest {
                 assertTrue(height(body, Msg.HEALER.t(language), 100) <= 20, prefix + "speaker name");
                 assertTrue(new GlyphLayout(body, language.nativeName()).width <= 260, prefix + "language name");
                 assertTrue(height(hint, Msg.MENU_HINT.t(language), 608) <= 26, prefix + "menu hint");
+                assertTrue(height(hint, Msg.FIREBALL_STOCK_FULL.t(language), 200) <= 40, prefix + "full ammunition hint");
                 // Spoken healer/player lines are measured against the actual two-thirds regions
                 // and frame-derived height in HealerDialogueTest, including every typed dialogue key.
                 for (Msg message : new Msg[]{Msg.HEALER_RETURN, Msg.HEALER_BREW, Msg.HEALER_FIGHT})
