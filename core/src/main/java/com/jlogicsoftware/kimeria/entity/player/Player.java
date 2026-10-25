@@ -22,6 +22,7 @@ import com.jlogicsoftware.kimeria.input.KeyBindings;
 import com.jlogicsoftware.kimeria.input.GameplayInput;
 import com.jlogicsoftware.kimeria.entity.items.Carryable;
 import com.jlogicsoftware.kimeria.entity.items.Fireball;
+import com.jlogicsoftware.kimeria.entity.items.FireballRefill;
 import com.jlogicsoftware.kimeria.entity.items.Lever;
 import com.jlogicsoftware.kimeria.localization.Msg;
 import com.badlogic.gdx.graphics.g2d.Batch;
@@ -584,6 +585,7 @@ public class Player extends Actor<Player.State> implements CollideBody {
 
     /** Contextual teaching remains repeatable throughout the first room, including while carrying. */
     public String contextHint() {
+        if (fullFireballRefill() != null) return Msg.FIREBALL_STOCK_FULL.t(game.language());
         if (level == null || !level.tutorialHintsActive() || !canFight() || isAttacking
             || (gameplayInput.up() && gameplayInput.down())) return "";
         String interaction = interactionHint();
@@ -622,6 +624,11 @@ public class Player extends Actor<Player.State> implements CollideBody {
 
     /** Mechanisms keep their local anchor even when the hero already carries another object. */
     public void contextHintPosition(Vector2 out) {
+        FireballRefill refill = fullFireballRefill();
+        if (refill != null) {
+            out.set(refill.centerX(), refill.getY() - HINT_TARGET_OFFSET_Y);
+            return;
+        }
         LadderEntry entry = interactionHint().isEmpty() ? ladderEntry() : null;
         if (entry != null) { out.set(entry.ladder().centerX(), getY() + HINT_PLAYER_OFFSET_Y); return; }
         if (carried != null && selectedMechanism() == null) { out.set(carryHintAnchor); return; }
@@ -859,7 +866,9 @@ public class Player extends Actor<Player.State> implements CollideBody {
         if (isReachedCheckpoint) return;
 
         for (var obj : level.objects) {
-            if (obj instanceof Collectable c && overlapsEntity(c)) {
+            if (obj instanceof FireballRefill refill && overlapsEntity(refill)) {
+                refill.collideWithPlayer();
+            } else if (obj instanceof Collectable c && overlapsEntity(c)) {
                 c.collideWithPlayer();
             } else if (obj instanceof Enemy<?> enemy && (!isAttacking || enemy instanceof Boss) && enemy.hitboxOverlaps(hitboxBounds())) {
                 enemy.collidedWithActor(false);
@@ -871,6 +880,13 @@ public class Player extends Actor<Player.State> implements CollideBody {
         }
         Trigger selected = selectedMechanism();
         collideWithTriggerId = selected == null ? "" : selected.targetId;
+    }
+
+    private FireballRefill fullFireballRefill() {
+        if (level == null || !canFight()) return null;
+        return level.objects.stream().filter(o -> o instanceof FireballRefill refill
+                && !refill.isRemoved() && refill.inventoryFull() && overlapsEntity(refill))
+            .map(FireballRefill.class::cast).min(java.util.Comparator.comparingDouble(this::targetDistance)).orElse(null);
     }
 
     private boolean overlapsEntity(com.jlogicsoftware.kimeria.entity.Entity other) {

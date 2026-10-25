@@ -69,6 +69,7 @@
   "CLIMB": "Climb",
   "CLIMB_DOWN": "Climb down",
   "THROW": "Throw",
+  "FIREBALL_STOCK_FULL": "Fireball inventory full",
   "FIREBALL": "Fireball",
   "NO_AMMO": "Empty",
   "PLACE_BLOCKED": "Blocked",

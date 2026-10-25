@@ -404,7 +404,7 @@ Authored checkpoints cannot bypass boss defeat or its victory walk. See [BOSS.md
   Throwing an object does not spend fireball ammunition or also fire after the hand
   becomes empty. Directional attack/interact arbitration is now accepted in D18
   and implemented in #95 with device feedback; ladder actions are decided in
-  [D27](#d27-vertical-ladders) and implemented in #99.
+  [D28](#d28-vertical-ladders) and implemented in #99.
 - **Retry:** Ranged ammunition follows room rollback, including pickups and their
   sources, without duplication. Successful-room expenditure carries forward.
   Persistent ammunition/tablet handling on Continue still needs a separate decision;
@@ -573,6 +573,9 @@ Authored checkpoints cannot bypass boss defeat or its victory walk. See [BOSS.md
   for both stone and torch are implemented (2026-10-23). Both use the player's
   foreground pass and animated palm attachment. A carried-item HUD icon is not
   implemented by this change; it remains optional presentation.
+  The four carrying criteria in #97 were verified on 2026-10-25 against PR #154
+  and secured-state retention in PR #165; see the
+  [acceptance evidence](DIRECTIONAL_CONTROLS.md#carrying-acceptance-97).
 - **Details:** [Carrying model](GAME_DESIGN.md#one-visible-carryable-slot-d23),
   [current behavior](DIRECTIONAL_CONTROLS.md), [room lifecycle](ROOMS.md),
   [mechanics MVP](ROADMAP.md#mechanics-mvp).
@@ -689,7 +692,32 @@ Authored checkpoints cannot bypass boss defeat or its victory walk. See [BOSS.md
   [room-authoring contract](ROOMS.md#puzzle-platformer-authoring-contract-d26),
   [state boundaries](HEALER.md#state-policy), [#158](https://github.com/jlogicgames/edgard_in_kimeria/issues/158).
 
-## D27. Vertical ladders
+
+## D27. Three held fireballs and rare single-charge refills
+
+- **Status:** Accepted by the author, 2026-10-25 (#98); implemented in PR #168,
+  merged on 2026-10-25.
+- **Decision:** Keep the test run's initial stock at three and cap held stock at
+  three. Carry the remainder between levels. This replaces the tentative “three
+  uses per stage” assumption with a capacity rule: authored refills can permit
+  more than three shots over a stage, while keeping no more than three at once.
+- **Pickups:** Place one before the first level's boss-room entrance and one above
+  a moving platform in the second level. Body contact grants exactly one charge.
+  At full stock, retain the pickup and show a local full-inventory message using
+  the existing torch/lever hint animation, in every room. Ammunition remains
+  separate from recipe artifacts and the one visible carryable slot.
+- **HUD:** Three fixed icons at the top right, no number; missing charges are
+  darkened. Preserve development FPS spacing and separate world/HUD artwork.
+- **Recovery:** Record authored refill IDs with room pickups; roll provisional
+  stock and identity back together on death, retain secured identities on healer
+  returns, and restore entry stock/authored objects on Restart Level. No save fields.
+- **Why:** Make scarce ranged capacity readable at a glance, offer a deliberate
+  optional jump reward and pre-boss replenishment, and avoid wasting full-stock
+  pickups or farming charges through room returns. Required routes need no shots.
+- **Details:** [Rules and audit](DIRECTIONAL_CONTROLS.md#fireball-refills-98),
+  [placements and route evidence](ROOMS.md), [gameplay](GAMEPLAY.md).
+
+## D28. Vertical ladders
 
 - **Status:** Accepted and implemented for the Mechanics MVP, 2026-10-25 ([#99](https://github.com/jlogicgames/edgard_in_kimeria/issues/99)).
 - **Decision:** A ladder is an authored `Ladder` rectangle, one 16 px frame wide and a whole

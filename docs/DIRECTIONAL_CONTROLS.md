@@ -57,7 +57,8 @@ The mirrored action D-pad is never also a movement direction. Start/Esc and menu
 bindings are unchanged. Touch labels distinguish sword, pickup, placement, blocked
 placement, mechanism, throw, fireball and empty stock. All contextual teaching uses
 the entire first Forest room (`forest`, room 0), at every position and height,
-including retries and collection returns. Other rooms/levels omit teaching labels.
+including retries and collection returns. Other rooms/levels omit teaching labels. The full-ammunition pickup message is
+status feedback, available at its pickup in every room and level.
 The earlier 320×144 rectangle, one-time and 50 px limits are superseded by
 [D24](DECISIONS.md#d24-the-whole-first-room-teaches-including-mechanisms-while-carrying).
 Carrying shows Put down and Throw at the pickup anchor until the camera begins
@@ -73,7 +74,7 @@ normal local position; they ease out over 0.25 s while continuing 12 pixels upwa
 The outgoing text keeps its world anchor until invisible, then replacement content
 starts below its own anchor. Interrupted entry/re-entry preserves the current slide
 position and opacity, avoiding jumps. Touch button labels, target brackets and the
-ammunition counter remain available throughout gameplay; there is no opaque banner.
+ammunition icons remain available throughout gameplay; there is no opaque banner.
 Gold corner brackets frame the selected object itself. For Up + Action, a visible
 lever is framed at its trigger zone and named Lever, with Turn on/Turn off matching
 the linked torch. Other mechanisms frame the nearest visible linked object rather
@@ -122,18 +123,83 @@ forward entry secures remaining stock. Healer preparation/collection return secu
 the current stock without replenishing it. Restart Level restores level-entry stock.
 The persistent save still contains only a level index.
 
+## Carrying acceptance (#97)
+
+All four criteria in [#97](https://github.com/jlogicgames/edgard_in_kimeria/issues/97)
+are implemented: one visible hand slot with sword use retained; Down + Action
+pickup/place; Ranged throw without a fireball; and documented room ownership/rollback.
+The mechanics and entrance practice objects shipped in
+[PR #154](https://github.com/jlogicgames/edgard_in_kimeria/pull/154), closing #95;
+secured mutable-object restoration followed in
+[PR #165](https://github.com/jlogicgames/edgard_in_kimeria/pull/165), addressing #158.
+
+Practice in the first `forest` room: touch stone 116, press S+K, release,
+walk with D/A, release movement, press K to use the sword, wait for the swing to end,
+press S+K to place, release, approach and pick up again, then press L to throw.
+The mirrored layout uses Down+X, arrows, X and C. Stock remains unchanged
+through this sequence; a separate fresh Ranged press with an empty hand fires.
+
+State owners are `Player.carried`, `Carryable.holder` and the authored room's
+object ID in `Level`. A secured `Carryable.Snapshot` stores x/y, velocity x/y,
+thrown and removed flags. Before securing, release a held object onto safe support;
+restoration clears the old holder. First-visit death restores authored state,
+revisit death restores the latest secured state, and Restart Level rebuilds authored
+objects. Tools never enter the persistent save. See [room lifecycle](ROOMS.md).
+
+Verification on 2026-10-25: `DirectionalActionsTest`, `RoomTest` and `RoomReplayTest`
+pass. Coverage includes sword use while carrying, one-slot selection, pickup/place,
+throw/fireball separation, shipped entrance practice in both keyboard layouts,
+holder cleanup, secured tool restoration and collection-return routes.
+This audit adds no new physical-device or human playtest evidence. Authored
+environmental puzzles and wider recovery/device acceptance remain separate below.
+
+## Fireball refills (#98)
+
+Author decisions, 2026-10-25: maximum **three held charges**, auto-pickup on body
+contact, +1 per pickup. A full stock leaves the world sprite untouched and shows
+`FIREBALL_STOCK_FULL` above it through the existing `HintTransition` fade/slide,
+including outside the first teaching room. All five catalogs translate the message.
+Leaving contact, spending a charge or losing gameplay control dismisses the hint.
+Holding a stone/torch does not block ammunition collection or use its carryable slot.
+The HUD has three permanent 32×32 icons, 4 px apart; available charges are bright,
+spent charges use 25% RGB brightness. There is no ammunition number. The existing
+separate illustrated HUD texture and native 16×16 world sprite are reused.
+
+| Map / owner | Authored refill | Position | Purpose |
+| --- | --- | --- | --- |
+| `forest` / `forest-canopy` | 121 | TMX (1824, 320), world (1824, 304) after layer offset | Before the exit to the healer/boss chamber |
+| `forest-1` / sole room | 25 | (312, 176) | Optional jump above horizontal moving platform 17 |
+
+`Level.pendingPickups` / `keptPickups` track the authored map IDs, separately from
+recipe artifacts. Full-stock contact records nothing. Death restores room-entry stock
+and unsecure refills together; securing a room/healer visit retains both the charge
+and consumed identity. Spending a secured charge never respawns its pickup on a
+collection return. Restart Level restores level-entry stock and authored pickup
+opportunities. Stock stays run-only; no new save field or automatic level refill.
+
+Audit against main `ae7318a`: [PR #154](https://github.com/jlogicgames/edgard_in_kimeria/pull/154)
+(closed #95) already implemented single-press fireball spending, empty-stock labels,
+throw/fire separation and stock snapshots. [PR #159](https://github.com/jlogicgames/edgard_in_kimeria/pull/159)
+(closed #155) fixed magical boss damage at two independently of the sword elixir;
+[PR #166](https://github.com/jlogicgames/edgard_in_kimeria/pull/166) protects orange
+retaliation. [PR #165](https://github.com/jlogicgames/edgard_in_kimeria/pull/165)
+provides retained room owners. #98 adds the missing authored refill opportunity,
+full-stock feedback and icon presentation, merged in
+[PR #168](https://github.com/jlogicgames/edgard_in_kimeria/pull/168) on 2026-10-25.
+The merge does not by itself establish deployment or manual acceptance.
+
 ## Explicit dependencies
 
 - [#99](https://github.com/jlogicgames/edgard_in_kimeria/issues/99) is implemented:
   see [Ladders](#ladders-99). `Player.verticalMovement()` still returns zero
   throughout a held directional Action, and the ladder consumes it so one chord cannot
   climb and activate. Only simulated-device tests are claimed; no physical ladder playtest.
-- [#97](https://github.com/jlogicgames/edgard_in_kimeria/issues/97) has a working
-  stone/portable-torch baseline here; authored environmental puzzles and author
-  acceptance remain in its prototype work.
-- [#98](https://github.com/jlogicgames/edgard_in_kimeria/issues/98) still owns rare
-  refills, refill identities/rollback and campaign balancing. It now has a real
-  consumable fireball handler to build on. No refill/shop is advertised in this build.
+- [#97](https://github.com/jlogicgames/edgard_in_kimeria/issues/97) meets its carrying
+  criteria; [evidence above](#carrying-acceptance-97). Authored environmental puzzles
+  remain #102–#104 (Forest) and #112–#115 (Fortress).
+- [#98](https://github.com/jlogicgames/edgard_in_kimeria/issues/98) now has two rare
+  single-charge refills and identity/stock rollback; [rules and audit](#fireball-refills-98).
+  Campaign shop supply/prices remain future economy work; no shop is advertised.
 - [#100](https://github.com/jlogicgames/edgard_in_kimeria/issues/100) and
   [#101](https://github.com/jlogicgames/edgard_in_kimeria/issues/101) retain broader
   authored recovery and physical-device acceptance. These dependencies are not
@@ -189,16 +255,18 @@ Keep only representative captures of the selected presentation:
 - Three-quarter lever [down/off](references/controls-lever-three-quarter-off.png)
   and [up/on](references/controls-lever-three-quarter-on.png), with local instructions
   and selection brackets. F2 invulnerability was used for presentation inspection.
-- Matching 32 px HUD slots in [release](references/hud-equal-icons-release.png)
-  and [debug](references/hud-equal-icons-debug.png); debug FPS reserves the far-right
-  column, while release stock occupies it. Both use a 20 px count font.
+- Current [three-slot fireball HUD](references/hud-fireball-capacity-debug.png)
+  (#98, 2026-10-25): two bright charges and one dark slot, no ammunition number,
+  separate debug FPS column. It supersedes the former icon-plus-number captures.
 - Real desktop DevHost FPS at [startup](references/run-dev-fps-start.png)
   and [hot restart](references/run-dev-fps-hot-restart.png).
 
 Browser checks included both handedness layouts, simulated multitouch, held items,
 resize/letterboxing and release FPS absence without runtime errors. Physical
 controller/phone and novice playtests remain separate acceptance work (#101, #131).
-Snyk scanning is omitted at the author's explicit instruction; no scan result is claimed.
+The original #95 artwork review omitted Snyk scanning at the author's instruction.
+The later #98 scan found no new issues; only two existing LOW findings in unchanged
+`tools/PortraitExport.java`.
 
 After packing/cleanup (2026-10-23), the directional-action suite, all eight
 art-guard tests, sprite validation and both release builds pass again. Every
@@ -220,7 +288,7 @@ acceptance remains #131. These are not claimed complete by simulated tests.
 
 ## Ladders (#99)
 
-Rules and rationale: [D27](DECISIONS.md#d27-vertical-ladders). Implemented 2026-10-25.
+Rules and rationale: [D28](DECISIONS.md#d28-vertical-ladders). Implemented 2026-10-25.
 
 | Situation | Up / Down | Action | Ranged | Jump |
 | --- | --- | --- | --- | --- |

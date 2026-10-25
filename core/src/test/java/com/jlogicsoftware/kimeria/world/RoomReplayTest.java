@@ -293,15 +293,35 @@ class RoomReplayTest {
         assertFalse(level.player.isGotHit());
     }
 
+    @Test void secondLevelRefillCanBeCollectedByJumpingWithLiveHazards() {
+        var stock = new com.jlogicsoftware.kimeria.RangedStock();
+        stock.restore(2);
+        Level level = new Level(assets, game, player(), "replay-forest-1", Rectangle::new, stock);
+        for (int attempt = 0; attempt < 3; attempt++) {
+            held.clear(); pressed.clear(); timeScale = 1;
+            if (attempt > 0) level.resetCurrentRoom(player());
+            float seconds = replay(level, "forest-1", false, 0, new float[]{125, 260, 540}, true);
+            assertEquals(3, level.rangedStock.count());
+            assertTrue(level.objects.stream().noneMatch(o -> o instanceof com.jlogicsoftware.kimeria.entity.items.FireballRefill && !o.isRemoved()));
+            assertTrue(seconds <= REQUIRED_LIMIT);
+            System.out.printf(java.util.Locale.ROOT, "forest-1 refill attempt %d: %.2f s%n", attempt + 1, seconds);
+        }
+    }
+
     private void measure(String route, boolean canopy, boolean collect, int delayFrames, float[] jumps) {
         String mapName = route.equals("forest-1") ? "replay-forest-1" : "forest";
-        Level level = new Level(assets, game, player(), mapName, Rectangle::new);
+        var stock = new com.jlogicsoftware.kimeria.RangedStock();
+        stock.restore(0);
+        Level level = new Level(assets, game, player(), mapName, Rectangle::new, stock);
         if (canopy) level.enterNextRoom(player());
         float firstTime = 0;
         for (int attempt = 0; attempt < 3; attempt++) {
             coins = 0; timeScale = 1; held.clear(); pressed.clear();
             if (attempt > 0) level.resetCurrentRoom(player());
+            assertEquals(0, level.rangedStock.count(), "Required/coin replay starts with no charges, including retries");
             float seconds = replay(level, route, collect, delayFrames, jumps);
+            assertTrue(level.objects.stream().noneMatch(com.jlogicsoftware.kimeria.entity.items.Fireball.class::isInstance),
+                "Required and coin routes never fire a projectile");
             assertTrue(seconds <= (collect ? COLLECTION_LIMIT : REQUIRED_LIMIT), route + " replay budget exceeded");
             if (collect) assertEquals(3, coins, "The collection route must pick up every coin in its room");
             if (attempt == 0) firstTime = seconds;
@@ -349,7 +369,17 @@ class RoomReplayTest {
                         }
                     }
                 }
-                if (artifactsRoute) {
+                if (artifactsRoute && route.equals("forest-1")) {
+                    var refill = level.objects.stream().filter(o -> o instanceof com.jlogicsoftware.kimeria.entity.items.FireballRefill
+                        && !o.isRemoved()).map(com.jlogicsoftware.kimeria.entity.items.FireballRefill.class::cast).findFirst().orElse(null);
+                    float stop = refill == null ? -1 : refill.getX() - player.hitbox.offsetX;
+                    if (refill != null && player.position.x >= stop && player.position.x < stop + 20) {
+                        held.remove(Input.Keys.D);
+                        if (player.isOnGround() && frame - lastJumpFrame > 1) {
+                            held.add(Input.Keys.J); lastJumpFrame = frame;
+                        }
+                    }
+                } else if (artifactsRoute) {
                     ItemType target = route.equals("forest-entry") ? ItemType.CHICKEN : ItemType.KEY;
                     float stop = target == ItemType.CHICKEN ? 430 : 1710;
                     boolean hasTarget = artifacts.items().stream().anyMatch(p -> p.type() == target);
@@ -379,6 +409,9 @@ class RoomReplayTest {
             // Match KimeriaGame.render: scale the world step, but keep keyboard buffering on real time.
             level.update(REAL_STEP * timeScale);
             assertFalse(player.isGotHit(), route + " died at frame " + frame);
+            // Stop this pickup exercise before Checkpoint secures it, so retries test rollback.
+            if (artifactsRoute && route.equals("forest-1") && level.rangedStock.count() == 3)
+                return (frame + 1) * REAL_STEP;
             if (level.atRoomExit() || player.getState() == Player.State.DISAPPEARING)
                 return (frame + 1) * REAL_STEP;
         }

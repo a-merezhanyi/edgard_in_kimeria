@@ -235,3 +235,23 @@ Sources: [MVP](MVP.md), [post-boss validation](POST_BOSS_VALIDATION.md).
 - [ ] Check ladder entry, climbing, jump-off and Up/Down + Action ownership with a
   physical gamepad and a physical multitouch device in both layouts. Simulated-device
   tests are in [directional controls](DIRECTIONAL_CONTROLS.md#ladders-99); they are not physical checks.
+
+
+## Fireball refill and HUD acceptance (#98, 2026-10-25)
+
+Automated stock/identity rollback and live-hazard jump-route checks pass; browser
+HUD inspection is recorded in [ROOMS.md](ROOMS.md#fireball-refill-revision-98-2026-10-25).
+Before release, manually check desktop and browser:
+
+- Find refill 121 before the first boss-room entrance and jump from moving platform
+  17 to refill 25 on level two. Confirm the native sprite is readable against terrain.
+- At three charges, touch the pickup: it remains; the local full-stock hint fades
+  and slides using the torch/lever system, including outside the tutorial. Check
+  all five languages, leaving/re-entering contact, and carrying a stone/torch.
+- Spend a charge while touching it: refill +1 exactly once and dismiss the message.
+  Check three bright icons at full stock and three dark icons at zero, without a
+  number, after resize and in release mode without FPS.
+- Confirm full-stock contact does not secure a pickup; death restores provisional
+  stock/pickups together; healer returns cannot farm secured charges; Restart Level
+  restores authored opportunities and entry stock. Physical controls/novice balance
+  remain separate acceptance work (#100/#101/#118).

@@ -302,7 +302,7 @@ layer offset that this text already includes in the visible position).
 | 192 | YellowMob (id 50), patrol 128–208, beside a one-tile step | **Stomp, alone**. Jump on it from above, or K. |
 | 240–320 | Quicksand, vertical Bat (272); optional one-way steps to the coins/Chicken | Hazard + Bat; not a taught mechanic |
 | 512–608 | Horizontal Bat (patrol now ends at about 608) and a second quicksand | Same, repeated |
-| 416–480 | **Ladder** (id 122, x 416, 240–320) up to a one-way ledge (id 121) under the Chicken | **Ladder, alone**: Up beside it takes hold; hint only in this room |
+| 416–480 | **Ladder** (id 123, x 416, 240–320) up to a one-way ledge (id 122) under the Chicken | **Ladder, alone**: Up beside it takes hold; hint only in this room |
 | 656 | **Bomb** (id 54), moved from 128 | **Bomb, alone**: flat ground, 0.8 s warning (1.2 s with Assist), 64 px blast |
 | 832 | YellowMob (id 16), aggro zone 752–896 | Stomp repeated, first light combination: leave the blast, then meet the mob |
 | 912, 992 | Two tall walls | Wall jump |
@@ -490,11 +490,55 @@ adds a deliberate vertical offset to the ordinary room-clamped camera. Horizonta
 bounds and transition ownership remain unchanged. Pose/camera inspection never
 changes the active room, collision, hero position or visible carryable attachment.
 
+
+### Fireball refill revision (#98, 2026-10-25)
+
+Local map identities (pending commit/review):
+
+- `forest.tmx` SHA-256: `3809d6b20bbb0672a8ca332ef036ac74b0a510790afad7968adb1ebdbe23f912`.
+- `forest-1.tmx` SHA-256: `0f937265c9dda74b5027b6016e85ec8fa622a5b8a9d1b5fae667bb59e6814e3f`.
+
+Only one optional `FireballRefill` object is added per map; collision geometry,
+existing IDs and routes are unchanged. Forest refill 121 belongs to `forest-canopy`,
+authored x=1824/y=320, effective y=304 after the SpawnPoints -16 layer offset,
+before RoomExit 113 into the healer/boss flow. Level-two refill 25 is at x=312/y=176,
+above horizontal Escalator 17 (authored x=304/y=240). It uses the existing native
+16×16 fireball sprite, separate from the detailed HUD art. TMX ID counters advance.
+
+`RoomReplayTest` uses production input/physics, normal assist-off live hazards and
+zero room-entry charges for required routes: first room 16.27 s; canopy 5.00 s;
+second level 5.32 s, each a fresh attempt and two identical room retries. No Ranged
+input is used. Coin routes remain 20.00 / 5.00 s. Existing secured-platform and
+collection-return route checks also pass. “All collections” in older output means
+all coins; it does not claim every artifact/refill.
+
+The optional level-two refill exercise starts with two charges, follows normal
+movement and jumps onto/above the moving platform, stops horizontally beneath the
+pickup and makes a fresh jump. Contact grants the third charge at 3.67 s on all
+three attempts, with hazards active. This exercise ends at pickup, before the
+checkpoint secures it, then retries the room to prove the opportunity/stock rollback.
+The independent required-route measurement still reaches the actual checkpoint.
+No teleport, invulnerability or disabled hazards are used in these scripted routes.
+
+`RoomTest` also verifies provisional pickup/stock rollback, secured ID 121 absence
+through three healer returns, boss-entry ammunition rollback and authored reset on
+Restart Level. `DirectionalActionsTest` verifies full-stock local feedback outside
+the tutorial, retention at capacity and automatic +1 collection when space opens.
+All 219 core tests, desktop and TeaVM release builds, localization, sprite-art and
+named-parameter checks pass. Snyk reports only the two existing LOW findings in
+unchanged `tools/PortraitExport.java`; no new security findings.
+
+A browser development smoke visually checks three fixed HUD slots, darkened spent
+charges, no ammunition number and FPS spacing, and sees the world pickup before
+the boss-room exit. This is not a human readability/balance playtest, an unassisted
+complete run, or a desktop-renderer check. Manual pickup-hint/second-level readability
+acceptance remains in [PRE_RELEASE_TODO.md](PRE_RELEASE_TODO.md).
+
 ## Ladder practice revision (#99)
 
-`forest.tmx` SHA-256 `74efd4c2bd68c12027de9deca16a36e110f0743d0d475d5d5f7c846aca91521a`. Added to `forest-entry`:
-one-way ledge collision 121 (416, 240, 64×16) with matching Background tiles, and `Ladder`
-object 122 (`first-ladder`, SpawnPoints x 416, y 256 before the -16 layer offset, so the
+`forest.tmx` SHA-256 `bdd719de7af0ccc56302322777072f48e3316cd3ccffc1aaa621876d61cc32c3`. Added to `forest-entry`:
+one-way ledge collision 122 (416, 240, 64×16) with matching Background tiles, and `Ladder`
+object 123 (`first-ladder`, SpawnPoints x 416, y 256 before the -16 layer offset, so the
 climbable span is world y 240–320, five 16 px frames). The Chicken (id 94) already hovers at
 the ledge's surface, so the ladder is an alternative to the stair-and-jump route, not a new
 requirement. No enemy, coin or artifact was added, moved or removed; the required route and

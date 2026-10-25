@@ -5,6 +5,8 @@ public final class RangedStock {
     public static final int CAPACITY = 3;
     private int count = CAPACITY, levelEntry = CAPACITY;
     public int count() { return count; }
+    public boolean isFull() { return count == CAPACITY; }
+    public boolean refill() { if (isFull()) return false; count++; return true; }
     public boolean spend() { if (count == 0) return false; count--; return true; }
     public void restore(int value) { count = Math.max(0, Math.min(CAPACITY, value)); }
     public void beginLevel() { levelEntry = count; }
