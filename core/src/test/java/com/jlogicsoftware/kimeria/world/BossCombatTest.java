@@ -155,6 +155,23 @@ class BossCombatTest {
         assertEquals(Boss.State.NORMAL, boss.getState());
     }
     private void sword() { pressed.add(Input.Keys.K); frames(1); }
+    private void vulnerableAgain() {
+        for (int frame = 0; frame < 180 && boss.isCounterSequence(); frame++) frames(1);
+        assertFalse(boss.isCounterSequence(), "The counter should finish before the next accepted hit");
+    }
+    private void vulnerableSwordHits(int count) {
+        for (int hit = 0; hit < count; hit++) {
+            vulnerableAgain();
+            boss.collidedWithActor(true);
+        }
+    }
+    private void framesAt(int fps, int count) {
+        for (int i = 0; i < count; i++) { boss.update(1f / fps); boss.resolveCombat(); }
+    }
+    private Rectangle playerAttackHitbox() throws Exception {
+        var field = Player.class.getDeclaredField("attackHitbox"); field.setAccessible(true);
+        return (Rectangle) field.get(level.player);
+    }
     private Vector2 shake() { return level.cameraShakeOffset(new Rectangle(1856, 0, 640, 360)); }
 
     private void fireball(boolean right) {
@@ -241,7 +258,8 @@ class BossCombatTest {
     @Test void nextLevelAfterBossVictoryGetsAFreshControllablePlayer() throws Exception {
         encounter();
         artifacts.drinkBossElixir("forest");
-        boss.collidedWithActor(true); boss.collidedWithActor(true);
+        boss.collidedWithActor(true);
+        outsideSwing(); vulnerableAgain(); boss.collidedWithActor(true);
         frames(550);
         assertEquals(1, completions);
         Player exiting = level.player;
@@ -339,7 +357,11 @@ class BossCombatTest {
         Player retry = new Player(assets, running, 0, 0);
         world.resetCurrentRoom(retry); gameField(running, "player", retry);
         running.artifacts().drinkBossElixir("forest");
-        world.boss().collidedWithActor(true); world.boss().collidedWithActor(true);
+        Boss retryBoss = world.boss();
+        retryBoss.collidedWithActor(true);
+        retry.position.set(retryBoss.getX() - 90, 272);
+        for (int i = 0; i < 140; i++) world.update(REAL_STEP);
+        retryBoss.collidedWithActor(true);
         for (int i = 0; i < 30; i++) world.update(REAL_STEP);
         assertFalse(world.victoryExitComplete(), "Death presentation must finish first");
         assertTrue(running.isGameStarted());
@@ -414,19 +436,35 @@ class BossCombatTest {
         assertEquals(Boss.State.THRONE, retry.getState());
     }
 
-    @Test void counterHitsHaveFeedbackWithoutInterruptingOrRestartingTheCounter() {
+    @Test void orangeCounterSequenceRejectsSwordAndFireballWithoutNewFeedbackOrTimerChanges() throws Exception {
         soundsEnabled = true;
-        encounter(); startNormal(); sword(); outsideSwing(); frames(83);
-        assertEquals(Boss.State.COUNTER, boss.getState());
-        level.updatePresentation(1);
+        encounter(); artifacts.drinkBossElixir("forest");
         boss.collidedWithActor(true);
-        assertEquals(Boss.State.COUNTER, boss.getState());
-        frames(1);
-        assertEquals(1, level.objects.stream().filter(BloodBurst.class::isInstance).count());
-        assertEquals(1f, boss.feedback().lostSegmentAlpha(10));
-        assertEquals(2, playedSounds.stream().filter("boss_hit"::equals).count());
-        frames(20);
-        assertEquals(Boss.State.COUNTER_RECOVERY, boss.getState());
+        assertEquals(2, boss.energy());
+        level.clearCameraEffects(); outsideSwing();
+        for (Boss.State protectedState : new Boss.State[]{Boss.State.HURT, Boss.State.WARNING,
+            Boss.State.COUNTER, Boss.State.COUNTER_RECOVERY}) {
+            for (int frame = 0; frame < 180 && boss.getState() != protectedState; frame++) frames(1);
+            assertEquals(protectedState, boss.getState());
+            var elapsed = Boss.class.getDeclaredField("elapsed"); elapsed.setAccessible(true);
+            var pendingField = Level.class.getDeclaredField("pendingSpawns"); pendingField.setAccessible(true);
+            float timer = elapsed.getFloat(boss);
+            int blood = (int) level.objects.stream().filter(BloodBurst.class::isInstance).count();
+            int pendingBlood = (int) ((List<?>) pendingField.get(level)).stream().filter(BloodBurst.class::isInstance).count();
+            int hitSounds = (int) playedSounds.stream().filter("boss_hit"::equals).count();
+            float lostSegment = boss.feedback().lostSegmentAlpha(2);
+            boss.collidedWithActor(true);
+            fireball(true);
+            assertEquals(2, boss.energy(), protectedState.toString());
+            assertEquals(timer, elapsed.getFloat(boss), 0f, "A rejected hit cannot reset the timer");
+            assertEquals(blood, level.objects.stream().filter(BloodBurst.class::isInstance).count());
+            assertEquals(pendingBlood, ((List<?>) pendingField.get(level)).stream().filter(BloodBurst.class::isInstance).count());
+            assertEquals(hitSounds, playedSounds.stream().filter("boss_hit"::equals).count());
+            assertEquals(lostSegment, boss.feedback().lostSegmentAlpha(2));
+            assertEquals(Vector2.Zero, shake(), "Rejected empowered hits have no impact shake");
+        }
+        vulnerableAgain();
+        assertEquals(Boss.State.WALK, boss.getState());
     }
 
     @Test void throneWakeAndPursuitNeverReseatAndRetryRestoresFullBossWithElixir() {
@@ -459,15 +497,15 @@ class BossCombatTest {
         assertEquals(11, boss.energy()); frames(35);
         assertEquals(11, boss.energy(), "Overlap frames cannot repeat a sword hit");
         outsideSwing(); frames(90);
-        for (int i = 0; i < 10; i++) boss.collidedWithActor(true);
-        assertEquals(1, boss.energy()); boss.collidedWithActor(true);
+        vulnerableSwordHits(10);
+        assertEquals(1, boss.energy()); vulnerableSwordHits(1);
         assertTrue(boss.isDefeated());
         level.resetCurrentRoom(player());
         boss = (Boss) level.objects.stream().filter(Boss.class::isInstance).findFirst().orElseThrow();
         artifacts.drinkBossElixir("forest");
         assertEquals(12, boss.energy());
         boss.collidedWithActor(true);
-        assertEquals(2, boss.energy()); boss.collidedWithActor(true);
+        assertEquals(2, boss.energy()); outsideSwing(); vulnerableAgain(); boss.collidedWithActor(true);
         assertTrue(boss.isDefeated());
     }
 
@@ -477,6 +515,7 @@ class BossCombatTest {
             if (elixir) artifacts.drinkBossElixir("forest");
             fireball(right);
             assertEquals(10, boss.energy(), "elixir=" + elixir + ", right=" + right);
+            outsideSwing(); vulnerableAgain();
             fireball(right);
             assertEquals(8, boss.energy(), "One projectile must hit only once");
             assertEquals(Vector2.Zero, shake(), "Fireballs never use empowered-sword impact shake");
@@ -485,8 +524,9 @@ class BossCombatTest {
 
     @Test void fireballDamageClampsAnOddRemainingEnergyToZero() {
         encounter();
-        for (int hit = 0; hit < 11; hit++) boss.collidedWithActor(true);
+        outsideSwing(); vulnerableSwordHits(11);
         assertEquals(1, boss.energy());
+        vulnerableAgain();
         fireball(true);
         assertEquals(0, boss.energy());
         assertTrue(boss.isDefeated());
@@ -494,7 +534,8 @@ class BossCombatTest {
 
     @Test void sixLandedFireballsDefeatTheBossAndADeadOrAbandonedBossTakesNoMoreDamage() {
         encounter();
-        for (int hit = 0; hit < 6; hit++) fireball(true);
+        outsideSwing();
+        for (int hit = 0; hit < 6; hit++) { vulnerableAgain(); fireball(true); }
         assertEquals(0, boss.energy());
         assertTrue(boss.isDefeated());
         assertFalse(level.player.canFight(), "Lethal projectile hit starts protected victory");
@@ -508,30 +549,29 @@ class BossCombatTest {
         assertEquals(12, boss.energy(), "An abandoned boss cannot take projectile damage");
     }
 
-    @Test void lethalFireballDuringActiveCounterPreventsThatFramesAxeHitAndKeepsVictoryProtected() {
+    @Test void protectedFireballDuringActiveCounterDoesNotCancelItsAxeHit() {
         encounter(); startNormal(); sword(); outsideSwing(); frames(20);
         assertEquals(Boss.State.WARNING, boss.getState());
         frames(63);
         assertEquals(Boss.State.COUNTER, boss.getState());
         assertTrue(boss.isAttackActive());
         Rectangle axe = boss.attackBounds();
-        level.player.position.set(axe.x, axe.y);
+        level.player.position.set(axe.x - level.player.hitbox.offsetX, axe.y - level.player.hitbox.offsetY);
+        assertTrue(axe.overlaps(level.player.hitboxBounds()), "Place the hero inside the active counter box");
+        assertTrue(level.player.canFight());
         for (int hit = 0; hit < 6; hit++) fireball(true);
         boss.resolveCombat();
-        assertTrue(boss.isDefeated());
-        assertFalse(boss.isAttackActive());
-        assertFalse(level.player.isGotHit(), "Lethal magic cancels the active axe before its same-frame resolution");
-        assertFalse(level.player.canFight(), "The victory walk blocks gameplay input");
-        level.update(REAL_STEP);
-        assertFalse(level.player.isGotHit());
-        assertFalse(level.player.canFight());
+        assertFalse(boss.isDefeated(), "Protected fireballs cannot cancel an active counter");
+        assertEquals(11, boss.energy());
+        assertEquals(Boss.State.COUNTER, boss.getState());
+        assertTrue(level.player.isGotHit(), "The active axe still hits an overlapping hero");
     }
 
-    @Test void fireballHitDuringProtectedCounterDealsDamageWithoutRestartingItsTimer() {
+    @Test void fireballHitDuringProtectedCounterIsConsumedWithoutDamageOrTimerReset() {
         encounter(); startNormal(); sword(); outsideSwing(); frames(20);
         assertEquals(Boss.State.WARNING, boss.getState());
         fireball(true);
-        assertEquals(9, boss.energy(), "The sword hit already removed one energy before the fireball's two");
+        assertEquals(11, boss.energy());
         assertEquals(Boss.State.WARNING, boss.getState());
     }
 
@@ -567,16 +607,86 @@ class BossCombatTest {
         }
     }
 
-    @Test void counterCannotBeInterruptedButStillTakesDamageAndCannotRecurse() {
+    @Test void counterRejectsHitsUntilRecoveryEndsThenAcceptsANewHit() {
         encounter(); startNormal(); sword(); outsideSwing(); frames(20);
         assertEquals(Boss.State.WARNING, boss.getState());
-        boss.collidedWithActor(true); assertEquals(10, boss.energy());
+        boss.collidedWithActor(true); assertEquals(11, boss.energy());
         assertEquals(Boss.State.WARNING, boss.getState());
         frames(63); assertEquals(Boss.State.COUNTER, boss.getState());
-        boss.collidedWithActor(true); assertEquals(9, boss.energy());
+        boss.collidedWithActor(true); assertEquals(11, boss.energy());
         assertEquals(Boss.State.COUNTER, boss.getState());
         frames(40); assertEquals(Boss.State.WALK, boss.getState());
+        boss.collidedWithActor(true); assertEquals(10, boss.energy());
+        assertEquals(Boss.State.HURT, boss.getState());
         assertFalse(level.player.isGotHit());
+    }
+
+    @Test void everyOrangeStateRejectsBothDamageSourcesAtFirstAndLastFramesAtThirtySixtyAndOneTwentyFps() throws Exception {
+        for (int fps : new int[]{30, 60, 120}) for (boolean heroOnRight : new boolean[]{false, true}) {
+            encounter();
+            boss.facingRight = heroOnRight;
+            level.player.facingRight = !heroOnRight;
+            level.player.position.x = boss.getX() + (heroOnRight ? 120 : -120);
+            boss.collidedWithActor(true);
+            assertEquals(heroOnRight, boss.facingRight, "The initial hit locks the selected boss facing");
+            assertEquals(11, boss.energy());
+            for (Boss.State protectedState : new Boss.State[]{Boss.State.HURT, Boss.State.WARNING,
+                Boss.State.COUNTER, Boss.State.COUNTER_RECOVERY}) {
+                for (int frame = 0; frame < fps * 3 && boss.getState() != protectedState; frame++) framesAt(fps, 1);
+                assertEquals(protectedState, boss.getState(), "fps=" + fps + ", heroOnRight=" + heroOnRight);
+                assertEquals(heroOnRight, boss.facingRight, "Facing remains locked in " + protectedState);
+                boss.collidedWithActor(true);
+                fireball(heroOnRight);
+                assertEquals(11, boss.energy(), "fps=" + fps + ", side=" + heroOnRight + ", state=" + protectedState);
+                assertEquals(protectedState, boss.getState());
+                var elapsedField = Boss.class.getDeclaredField("elapsed"); elapsedField.setAccessible(true);
+                float elapsed = elapsedField.getFloat(boss);
+                float duration = switch (protectedState) {
+                    case HURT -> Boss.HURT_DURATION;
+                    case WARNING -> Boss.WARNING_DURATION;
+                    case COUNTER -> Boss.COUNTER_DURATION;
+                    case COUNTER_RECOVERY -> Boss.RECOVERY_DURATION;
+                    default -> throw new AssertionError(protectedState);
+                };
+                int framesToLast = Math.max(0, (int) Math.ceil((duration - elapsed) * fps) - 1);
+                framesAt(fps, framesToLast);
+                assertEquals(protectedState, boss.getState(), "Last protected frame: " + protectedState + ", fps=" + fps);
+                boss.collidedWithActor(true);
+                fireball(heroOnRight);
+                assertEquals(11, boss.energy(), "Last protected frame: " + protectedState + ", fps=" + fps);
+                framesAt(fps, 1);
+            }
+            assertEquals(Boss.State.WALK, boss.getState(), "The first frame after recovery is vulnerable");
+            boss.collidedWithActor(true);
+            assertEquals(10, boss.energy(), "A fresh hit is accepted after recovery");
+            assertEquals(Boss.State.HURT, boss.getState());
+        }
+    }
+
+    @Test void swordSwingOverlappingLastCounterRecoveryFramesStaysConsumedAfterProtectionEnds() throws Exception {
+        encounter(); startNormal(); sword();
+        assertEquals(11, boss.energy());
+        outsideSwing();
+        for (int frame = 0; frame < 180 && boss.getState() != Boss.State.COUNTER_RECOVERY; frame++) frames(1);
+        assertEquals(Boss.State.COUNTER_RECOVERY, boss.getState());
+        var elapsedField = Boss.class.getDeclaredField("elapsed"); elapsedField.setAccessible(true);
+        float elapsed = elapsedField.getFloat(boss);
+        int framesBeforeEnd = Math.max(1, (int) Math.ceil((Boss.RECOVERY_DURATION - elapsed) / REAL_STEP) - 8);
+        frames(framesBeforeEnd);
+        assertEquals(Boss.State.COUNTER_RECOVERY, boss.getState());
+        inSwordRange(); sword();
+        assertEquals(Player.State.ATTACKING, level.player.getState(), "The fresh swing must actually start");
+        assertTrue(playerAttackHitbox().overlaps(boss.hitboxBounds()), "The active sword box overlaps while protected");
+        assertEquals(11, boss.energy(), "This fresh swing is registered while the boss is protected");
+        for (int frame = 0; frame < 30 && boss.isCounterSequence(); frame++) frames(1);
+        assertEquals(Boss.State.WALK, boss.getState());
+        assertEquals(Player.State.ATTACKING, level.player.getState(), "The same swing remains active after protection ends");
+        assertTrue(playerAttackHitbox().overlaps(boss.hitboxBounds()), "The same sword box still overlaps on the first vulnerable frames");
+        assertEquals(11, boss.energy(), "The same active swing cannot become a delayed hit on the first vulnerable frame");
+        outsideSwing(); frames(45);
+        assertEquals(11, boss.energy(), "The rejected swing remains consumed through its active duration");
+        inSwordRange(); sword();
+        assertEquals(10, boss.energy(), "A subsequent fresh swing is accepted");
     }
 
     @Test void everyLaterNormalAttackCanBeInterruptedAfterTheCounterHasRecovered() {
@@ -598,7 +708,7 @@ class BossCombatTest {
         encounter(); startNormal(); sword(); outsideSwing(); frames(102);
         assertEquals(Boss.State.COUNTER_RECOVERY, boss.getState());
         boss.collidedWithActor(true);
-        assertEquals(10, boss.energy());
+        assertEquals(11, boss.energy());
         assertEquals(Boss.State.COUNTER_RECOVERY, boss.getState());
         frames(22);
         assertEquals(Boss.State.WALK, boss.getState());
@@ -683,6 +793,10 @@ class BossCombatTest {
 
     @Test void victoryKeepsFirefliesFireAndHazardsRunningWithoutHarmingTheHero() throws Exception {
         encounter();
+        artifacts.drinkBossElixir("forest");
+        boss.collidedWithActor(true);
+        outsideSwing(); vulnerableAgain(); boss.collidedWithActor(true);
+        assertTrue(boss.isDefeated());
         var ambienceField = Level.class.getDeclaredField("ambience"); ambienceField.setAccessible(true);
         List<?> ambience = (List<?>) ambienceField.get(level);
         assertFalse(ambience.stream().anyMatch(com.jlogicsoftware.kimeria.effects.FogEffect.class::isInstance));
@@ -699,9 +813,6 @@ class BossCombatTest {
             if (blast.overlaps(level.player.hitboxBounds())) level.player.collidedWithActor(false);
         }, level.player.getX() + 16, 288, 16, 16);
         level.objects.add(bomb); bomb.collideWithPlayer();
-        artifacts.drinkBossElixir("forest");
-        boss.collidedWithActor(true); boss.collidedWithActor(true);
-        assertTrue(boss.isDefeated());
         float start = level.player.getX();
         frames(30);
         assertEquals(start, level.player.getX(), "Wait for the existing death presentation");
@@ -719,12 +830,12 @@ class BossCombatTest {
         assertEquals(0, resets);
     }
 
-    @Test void lethalCounterHitCancelsDamageAndExitCrossesWallsWithExactlyOneCompletion() {
+    @Test void vulnerableLethalHitAfterCounterRecoveryCompletesOnce() {
         encounter(); artifacts.drinkBossElixir("forest");
         startNormal(); sword(); outsideSwing(); frames(83);
         assertEquals(Boss.State.COUNTER, boss.getState());
         assertEquals(2, boss.energy());
-        inSwordRange(); boss.collidedWithActor(true);
+        outsideSwing(); vulnerableAgain(); inSwordRange(); boss.collidedWithActor(true);
         assertTrue(boss.isDefeated()); assertFalse(boss.isAttackActive());
         assertEquals(Vector2.Zero, shake());
         float start = level.player.getX();
@@ -750,6 +861,7 @@ class BossCombatTest {
         assertEquals(32, normal.dropletCount());
         assertEquals(Vector2.Zero, shake(), "Ordinary hit has no empowered impact shake");
         artifacts.drinkBossElixir("forest");
+        outsideSwing(); vulnerableAgain();
         boss.collidedWithActor(true); level.update(.01f);
         assertEquals(1, boss.energy());
         assertTrue(level.objects.stream().filter(BloodBurst.class::isInstance).map(BloodBurst.class::cast)
@@ -758,6 +870,7 @@ class BossCombatTest {
         level.clearCameraEffects();
         boss.collidedWithActor(false);
         assertEquals(Vector2.Zero, shake(), "Body contact cannot trigger sword-impact shake");
+        outsideSwing(); vulnerableAgain();
         boss.collidedWithActor(true); level.update(.01f);
         assertTrue(boss.isDefeated());
         assertEquals(1, artifacts.bossWeaponDamageMultiplier("forest"));

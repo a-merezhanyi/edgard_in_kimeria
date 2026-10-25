@@ -334,8 +334,10 @@ Normal melee lasts approximately 0.6222 s (two successive +50% speed increases, 
 on 2026-10-16); the hero remains at 0.7 s. A landed sword hit during ordinary
 pursuit, normal melee or ordinary recovery interrupts that action,
 removing its damage and completion shake, then starts a distinct, visibly warned counter.
-Further sword hits still damage the boss but cannot interrupt or restart that counter,
-including its recovery. After counter recovery, ordinary actions become interruptible again.
+The orange HURT, WARNING, COUNTER and COUNTER_RECOVERY states are invulnerable to all
+damage sources. Rejected hits do not emit landed-hit feedback or change the counter timer;
+their projectile is still consumed, and each sword swing remains consumed once. After
+counter recovery, ordinary actions become vulnerable and interruptible again.
 Lethal damage always cancels combat. The player can jump away after sword recovery.
 Each completed attack produces one mild, room-bounded visual shake, even on a miss.
 Death resets the boss to full energy and throne at the boss-room entrance, retaining the elixir.

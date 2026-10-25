@@ -125,9 +125,10 @@ for the test version.
    no old strike damage/shake, and one energy loss per swing. Jump away once sword recovery
    ends; repeat near both walls and under the four authored platforms. Test a deliberately
    late reaction to distinguish a fair death from an unavoidable one.
-- [ ] Strike repeatedly during warning/counter. Confirm damage continues without restarting or
-   cancelling it. Land a lethal sword hit during counter. Complete/miss attacks, pause during
-   shake, resume, die, retry and transition: no residual shake or delayed damage.
+- [ ] Strike repeatedly during warning/counter. Confirm hits cause no damage or feedback and
+   cannot restart or cancel the sequence. Confirm a contacting fireball is consumed.
+   Complete/miss attacks, pause during shake, resume, die, retry and transition: no residual
+   shake or delayed damage.
 - [ ] Land on the head while falling, including near an axe strike. Confirm bounce with no
    energy loss or player death. Test side contact both idle and swinging.
 - [ ] Complete without artifacts, then with #84's consumed elixir.

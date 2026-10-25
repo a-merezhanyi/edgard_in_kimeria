@@ -151,6 +151,9 @@ public final class Boss extends Enemy<Boss.State> implements CollideBody {
 
     /** Shared landed-hit feedback and state handling; damage and empowered visuals stay source-specific. */
     private void resolveLandedHit(int damage, boolean empowered) {
+        // The orange retaliation sequence is a single protected interval. Keep this before
+        // energy, feedback, death, and shake mutations so every damage source shares the rule.
+        if (isCounterSequence()) return;
         int before = energy;
         energy = Math.max(0, energy - damage);
         feedback.damaged(before, energy);
@@ -163,7 +166,7 @@ public final class Boss extends Enemy<Boss.State> implements CollideBody {
             completedStrike = false;
             change(State.DEAD);
             level.bossDefeated();
-        } else if (!isCounterSequence()) {
+        } else {
             awakened = true;
             completedStrike = false;
             change(State.HURT);
@@ -213,7 +216,7 @@ public final class Boss extends Enemy<Boss.State> implements CollideBody {
         }
     }
 
-    /** Only the warned retaliation, including its recovery, resists interruption. */
+    /** The orange retaliation interval, including recovery, is invulnerable. */
     public boolean isCounterSequence() {
         return current == State.HURT || current == State.WARNING || current == State.COUNTER
             || current == State.COUNTER_RECOVERY;
