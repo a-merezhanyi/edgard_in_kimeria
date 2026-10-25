@@ -268,7 +268,7 @@ are concrete forms of the attacks.
 | --- | --- | --- |
 | Movement and jump | Positioning, avoiding danger, precision and timing between supports. | Implemented in the test build. |
 | Melee | Remove an enemy from the right position at the right moment. | Sword implemented; current limits in D4/D10. |
-| Ranged attack | A consumable advantage against distant danger. | Consumable fireball implemented for the test campaign; rare refills/balance remain #98. |
+| Ranged attack | A consumable advantage against distant danger. | Consumable fireball, capacity three and two rare single-charge pickups implemented for the test campaign (#98); campaign economy remains future work. |
 | Interaction | Operate a lever or another mechanism. | Up + Action selects a single mechanism (#95). |
 | Pick up and place | Move a stone or torch to change the room situation. | Down + Action implemented for one stone/portable torch (#95); environmental puzzles remain #97. |
 | Throw an object | Affect something distant or place an object ahead. | Implemented on Ranged; does not spend fireballs (#95). |
@@ -295,6 +295,16 @@ implicitly change these existing rules.
 - A throw must not also fire a fireball on the same press after the hand becomes
   empty. This separates resource expenditure; it does not forbid multiple linked
   effects from a mechanism interaction.
+
+**Fireball stock (D27, #98):** Capacity is three held charges, not three total
+shots per stage. A new/continued test run starts full; the next level carries the
+remaining stock. Two optional authored pickups restore one charge on contact. At
+capacity the pickup stays available and a local hint says the inventory is full.
+Three fixed HUD icons show available/spent charges without a number. Room death
+rolls back provisional pickups and stock together; secured pickup identities prevent
+farming on healer returns. Restart Level restores entry stock and authored pickups.
+Required routes remain playable without firing; campaign shop prices and supply
+balance remain separate design work. See [current rules](DIRECTIONAL_CONTROLS.md#fireball-refills-98).
 
 The one-slot input/state, throwing rules and deterministic target selection are implemented in
 [the #95 baseline](DIRECTIONAL_CONTROLS.md); visible front-hand stone rendering
@@ -390,9 +400,13 @@ new actions during implementation.
 shooting. The author's reference is an item picked up and used once, like throwable
 objects in Katana Zero.
 
-The working stock is **three uses per entire stage, with very rare refills**.
-A stage containing several levels does not imply resetting to three every level.
-Validate final quantities and refill placement on real levels.
+The accepted limit is **three held charges**, with rare +1 contact refills (D27,
+2026-10-25). This supersedes the earlier “three uses per entire stage” hypothesis.
+A new/continued test run starts with three; moving between levels carries the
+remainder rather than refilling. The test campaign has one authored refill before
+the first boss entrance and another above a moving platform after that boss.
+Full stock retains the pickup and shows a local hint; the HUD uses three icons
+with missing charges darkened. Validate campaign supply and prices on real levels.
 
 Required routes must remain possible without consumable ranged attacks. The player
 chooses where to spend an advantage; empty ammunition must not block progress.

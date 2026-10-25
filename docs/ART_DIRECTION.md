@@ -38,6 +38,10 @@ multi-frame sheet are different measurements.
   detailed clean illustration and linear filtering. Preserve the same identity:
   roasted drumstick on its plate, silver key, gold coin and fireball. These appear
   in the small existing HUD slots, not as 128-pixel gameplay objects.
+- **Fireball capacity HUD (#98, 2026-10-25):** reuse the illustrated icon in three
+  fixed 32×32 slots, 4 px apart, no number; spent slots use 25% RGB brightness.
+  The stationary world refill reuses the nearest-filtered 16×16 projectile art.
+  [Current browser capture](references/hud-fireball-capacity-debug.png).
 - **Portraits:** the accepted 256×256 illustrated remaster remains in force.
 
 The new pixel sources use the actual original Items.png as style reference.

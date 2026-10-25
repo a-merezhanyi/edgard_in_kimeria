@@ -82,16 +82,21 @@ always visible in the animated front hand. There is no separate pocket. Both sto
 and torch follow the front palm through turning, movement and jumps and render
 after the hero. World items retain tiny hard-edged pixel art; HUD icons use
 separate detailed images.
-Coin and fireball icons use equal 32×32 logical slots and matching count text.
+Coin and fireball icons use equal 32×32 logical slots. Coins retain their count;
+fireballs use three fixed icons without a number, with spent charges darkened.
 Fireball stock is at the top right in release launches. Development launches
 reserve the far-right column for FPS and shift stock left to avoid overlap.
 Pickup requires contact within a 3 px tolerance;
 touch labels also distinguish sword, pickup/place, mechanism, throw and fireball.
-Stock starts at three, persists between the two Forest levels and restores to room
+A new/continued run starts with three charges, the maximum held at once. Stock
+persists between the two Forest levels and restores to room
 entry stock on death. Sword and fireballs can damage the boss. Full behavior, target
 selection, recovery, test evidence and the explicit **#99 ladder dependency** are in
-[Directional actions](DIRECTIONAL_CONTROLS.md). Ladders, rare refills and Steppe double
-jump remain separate work; no available ladder controls are claimed.
+[Directional actions](DIRECTIONAL_CONTROLS.md). Two rare pickups each restore one
+charge automatically on contact: before the Forest boss entrance and above a moving
+platform in level two. Full stock leaves the pickup in place and shows a local
+“Fireball inventory full” hint using the mechanism hint fade/slide system in every
+room. Ladders and Steppe double jump remain separate work.
 
 The web build opens on a single-button start screen (click, Enter or Space): browsers block audio
 until the page has had a user gesture, so the menu music waits for it. Other platforms skip it.

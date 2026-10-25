@@ -33,6 +33,7 @@ public class Hud {
     private static final float HINT_WIDTH = 200, HINT_SIDE_MARGIN = 8, HINT_BOTTOM_MARGIN = 40, HINT_TOP_MARGIN = 52;
     private static final float TEXT_SHADOW_OFFSET = 1;
     private static final float ICON_X = 10, ICON_Y = 10, ICON_SIZE = 32;
+    private static final float FIREBALL_GAP = 4, EMPTY_FIREBALL_BRIGHTNESS = 0.25f;
 
     private final GameContext game;
     private final BossHud bossHud;
@@ -70,15 +71,23 @@ public class Hud {
 
     public void render(SpriteBatch batch, Boss boss, boolean empowered, Player player, String fpsText) {
         batch.draw(coinIcon, ICON_X, ICON_Y, ICON_SIZE, ICON_SIZE);
-        GlyphLayout ammunition = player == null ? null : new GlyphLayout(font, String.valueOf(player.ammunition()));
         float rightEdge = logicalWidth - ICON_X;
         if (!fpsText.isEmpty()) {
             // Reserve a stable three-digit counter column; wider values can still push the HUD left.
             float fpsWidth = Math.max(new GlyphLayout(hintFont, FPS_WIDTH_SAMPLE).width, new GlyphLayout(hintFont, fpsText).width);
             rightEdge = logicalWidth - FPS_RIGHT_MARGIN - fpsWidth - FPS_STOCK_GAP;
         }
-        float ammunitionX = ammunition == null ? rightEdge : rightEdge - ammunition.width;
-        if (player != null) batch.draw(fireballIcon, ammunitionX - ICON_TEXT_GAP - ICON_SIZE, ICON_Y, ICON_SIZE, ICON_SIZE);
+        if (player != null) {
+            float previousColor = batch.getPackedColor();
+            float stockX = rightEdge - com.jlogicsoftware.kimeria.RangedStock.CAPACITY * ICON_SIZE
+                - (com.jlogicsoftware.kimeria.RangedStock.CAPACITY - 1) * FIREBALL_GAP;
+            for (int slot = 0; slot < com.jlogicsoftware.kimeria.RangedStock.CAPACITY; slot++) {
+                float brightness = slot < player.ammunition() ? 1 : EMPTY_FIREBALL_BRIGHTNESS;
+                batch.setColor(brightness, brightness, brightness, 1);
+                batch.draw(fireballIcon, stockX + slot * (ICON_SIZE + FIREBALL_GAP), ICON_Y, ICON_SIZE, ICON_SIZE);
+            }
+            batch.setPackedColor(previousColor);
+        }
 
         String text = String.valueOf(game.coinsCollected());
         GlyphLayout layout = new GlyphLayout(font, text);
@@ -99,10 +108,6 @@ public class Hud {
         batch.setProjectionMatrix(textProjection);
         font.setColor(Color.WHITE);
         font.draw(batch, layout, x, logicalHeight - yFromTop);
-        if (ammunition != null) {
-            float ammunitionTop = ICON_Y + (ICON_SIZE - ammunition.height) / 2f;
-            font.draw(batch, ammunition, ammunitionX, logicalHeight - ammunitionTop);
-        }
         batch.setProjectionMatrix(previous);
         bossHud.render(batch, boss, empowered);
     }

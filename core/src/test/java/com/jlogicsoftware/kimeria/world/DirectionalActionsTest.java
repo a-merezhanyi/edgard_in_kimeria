@@ -502,6 +502,31 @@ class DirectionalActionsTest {
         stock.reset(); assertEquals(3, stock.count());
     }
 
+    @Test void fullRefillUsesTheLocalHintOutsideTutorialAndAutomaticallyCollectsWhenSpaceOpens() {
+        scene(false);
+        level = new Level(assets, game, player(), "forest", Rectangle::new);
+        level.enterNextRoom(player()); frames(2);
+        var refill = level.objects.stream().filter(com.jlogicsoftware.kimeria.entity.items.FireballRefill.class::isInstance)
+            .map(com.jlogicsoftware.kimeria.entity.items.FireballRefill.class::cast).findFirst().orElseThrow();
+        level.player.position.set(refill.getX() - level.player.hitbox.offsetX,
+            refill.getY() - level.player.hitbox.offsetY);
+        frames(1);
+        assertFalse(level.tutorialHintsActive());
+        assertEquals("Fireball inventory full", level.player.contextHint());
+        Vector2 anchor = new Vector2(); level.player.contextHintPosition(anchor);
+        assertEquals(refill.centerX(), anchor.x);
+        assertTrue(anchor.y < refill.getY());
+        assertEquals(3, level.player.ammunition());
+        assertFalse(refill.isRemoved());
+        assertFalse(level.rangedStock.refill(), "Full stock rejects another charge");
+        level.rangedStock.spend(); frames(1);
+        assertEquals(3, level.player.ammunition());
+        assertTrue(refill.isRemoved());
+        assertTrue(level.player.contextHint().isEmpty());
+        frames(3);
+        assertEquals(3, level.player.ammunition());
+    }
+
     @Test void swordRemainsGroundedAndJumpPlusSwordKeepsTheBufferedJump() {
         scene(false);
         level.player.setOnGround(false);

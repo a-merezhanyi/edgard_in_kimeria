@@ -503,6 +503,9 @@ public class Level implements WorldObject {
                 case "Collectable" -> spawnCollectable(o, ItemType.fromMapName(o.name));
                 case "Chicken" -> spawnCollectable(o, ItemType.CHICKEN);
                 case "Key" -> spawnCollectable(o, ItemType.KEY);
+                case "FireballRefill" -> {
+                    if (!keptPickups.contains(o.id)) objects.add(new com.jlogicsoftware.kimeria.entity.items.FireballRefill(this, game, o.id, o.x, o.y));
+                }
                 case "Bat" -> {
                     boolean vertical = o.propBool("isVertical", false);
                     Bat bat = new Bat(assets, game, o.x, o.y, o.width, o.height, vertical,

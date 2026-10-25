@@ -47,7 +47,8 @@ On Windows, use `gradlew.bat` instead of `./gradlew`.
 Local desktop (`run`/`runDev`) and browser development targets show FPS at the
 far right and reserve space for it in the HUD. `buildDesktop` and `buildWeb`
 produce release launches without that counter; the fireball stock occupies the
-rightmost HUD position. Coin and fireball icons both use 32×32 logical slots.
+rightmost HUD position as three fixed 32×32 icons, with spent charges darkened
+and no ammunition number. Coin icons use the same slot size.
 `runDev` selects debug mode through DevHost as well as the ordinary launcher's
 configuration. After updating DevHost itself, stop and restart `runDev` once:
 F7 restarts the hosted game, not the dev launcher/host.
@@ -67,6 +68,8 @@ F7 restarts the hosted game, not the dev launcher/host.
 
 Touch devices show on-screen controls. Language and left-handed controls are available
 in Options. Empty-handed ranged attacks spend one fireball; object throws spend none.
+Carry at most three charges. Two authored pickups restore one each on contact;
+a full stock leaves the pickup available and displays a local hint.
 See [directional controls](docs/DIRECTIONAL_CONTROLS.md) for both layouts and recovery rules.
 
 Translations live in editable UTF-8 catalogs. See [localization](docs/LOCALIZATION.md)

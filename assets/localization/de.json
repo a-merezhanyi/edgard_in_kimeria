@@ -67,6 +67,7 @@
   "PICK_UP": "Nehmen",
   "PUT_DOWN": "Ablegen",
   "THROW": "Werfen",
+  "FIREBALL_STOCK_FULL": "Feuerballvorrat voll",
   "FIREBALL": "Feuer",
   "NO_AMMO": "Leer",
   "PLACE_BLOCKED": "Belegt",
