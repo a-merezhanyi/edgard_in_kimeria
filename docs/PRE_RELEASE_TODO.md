@@ -232,5 +232,6 @@ Sources: [MVP](MVP.md), [post-boss validation](POST_BOSS_VALIDATION.md).
 - [ ] Check entrance practice hints/target marker at gameplay scale and after resize/
   letterboxing, in all five languages. Automated font layout and simulated devices
   are recorded in [directional controls](DIRECTIONAL_CONTROLS.md), not physical checks.
-- [ ] With #99, validate real ladder entry/climbing and directional-action ownership;
-  the vertical movement hook alone is not ladder integration.
+- [ ] Check ladder entry, climbing, jump-off and Up/Down + Action ownership with a
+  physical gamepad and a physical multitouch device in both layouts. Simulated-device
+  tests are in [directional controls](DIRECTIONAL_CONTROLS.md#ladders-99); they are not physical checks.

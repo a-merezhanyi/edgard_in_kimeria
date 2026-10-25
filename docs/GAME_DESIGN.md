@@ -226,7 +226,9 @@ is not game content.
 
 **Accepted:** vertical ladders, adding choices of height, route and timing of
 ascent/descent. Ladders do not replace every jumping challenge. Entry, exit,
-attacking and carrying rules on a ladder remain to be defined.
+attacking and carrying rules are fixed in [D27](DECISIONS.md#d27-vertical-ladders):
+Up/Down to take hold and climb, Jump to let go, ranged and mechanisms still work,
+the sword and pick up/put down do not. A first ladder stands in the first Forest room.
 
 **Accepted:** wind is Steppe's leading mechanic. **Prototype proposals:**
 
@@ -272,7 +274,7 @@ are concrete forms of the attacks.
 | Interaction | Operate a lever or another mechanism. | Up + Action selects a single mechanism (#95). |
 | Pick up and place | Move a stone or torch to change the room situation. | Down + Action implemented for one stone/portable torch (#95); environmental puzzles remain #97. |
 | Throw an object | Affect something distant or place an object ahead. | Implemented on Ranged; does not spend fireballs (#95). |
-| Vertical ladder | Change elevation, choose a route and movement timing. | Accepted addition; detailed controls open. |
+| Vertical ladder | Change elevation, choose a route and movement timing. | Implemented in the test build (#99, [D27](DECISIONS.md#d27-vertical-ladders)); first Forest room. |
 | Double jump | An extra airborne jump used in authored routes and wind tasks. | Accepted from Steppe; unlock and exact rules open. |
 
 The current scheme has three action buttons: jump, directional action and ranged.
@@ -299,7 +301,8 @@ implicitly change these existing rules.
 The one-slot input/state, throwing rules and deterministic target selection are implemented in
 [the #95 baseline](DIRECTIONAL_CONTROLS.md); visible front-hand stone rendering
 was completed on 2026-10-23.
-Actions allowed on ladders remain #99. Carrying alone does not
+Actions allowed on ladders are fixed in [D27](DECISIONS.md#d27-vertical-ladders): ranged
+and mechanisms work, sword and pick up/put down do not. Carrying alone does not
 prohibit normal movement or jumping; no such extra restrictions were accepted.
 
 ### One visible carryable slot (D23)
@@ -363,7 +366,7 @@ remain open.
 Test directional conflicts with ladders and the touch stick, both handedness
 layouts, and unambiguous target selection. Implemented in the test build on
 2026-10-22; [behavior and evidence](DIRECTIONAL_CONTROLS.md) distinguish simulated
-device tests from outstanding physical-device and ladder checks.
+device tests from outstanding physical-device checks. Ladder arbitration is covered by the same simulated devices (#99).
 
 An earlier alternative used a highlighted nearby object and a labelled contextual
 action, as in Zelda. It still conflicts with Edgard's sword during combat; a label
@@ -553,7 +556,7 @@ Further discussion must specify:
 
 1. Forest, Swamp and Fortress mechanics, plus concrete Steppe wind rules.
 2. Validation of five levels × five rooms per stage, pacing, bosses and fragment acquisition.
-3. Ladder actions (#99), double-jump acquisition and the existing wall jump's campaign role; #95 dispatch is implemented.
+3. Double-jump acquisition (including on ladders) and the existing wall jump's campaign role; #95 dispatch and #99 ladders are implemented.
 4. Ranged stock, rare refills and restoration after Continue.
 5. Elixir/fireball prices, coin income, recipes, purchase limits and collection/return boundaries.
 6. Persistent tablet progress and the story's conclusion.

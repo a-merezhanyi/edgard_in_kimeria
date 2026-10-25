@@ -75,8 +75,9 @@ playtests and one-minute learning checks with unfamiliar players belong to phase
   puzzle prototype; develop authored torch/light puzzles in Fortress.
 - [ ] [#98](https://github.com/jlogicgames/edgard_in_kimeria/issues/98) Implement consumable ranged attacks and rare refills. Separate throwing
   from fireball expenditure; a single press must not perform both.
-- [ ] [#99](https://github.com/jlogicgames/edgard_in_kimeria/issues/99) Implement vertical ladders. Define entry, ascent/descent, exit,
-  permitted actions and interaction priority near a ladder.
+- [x] [#99](https://github.com/jlogicgames/edgard_in_kimeria/issues/99) Implement vertical ladders. Define entry, ascent/descent, exit,
+  permitted actions and interaction priority near a ladder. Implemented 2026-10-25;
+  [rules](DECISIONS.md#d27-vertical-ladders), [evidence and limits](DIRECTIONAL_CONTROLS.md#ladders-99).
 - [ ] [#100](https://github.com/jlogicgames/edgard_in_kimeria/issues/100) Check death/recovery with held objects and ammunition: no failed-attempt
   stock loss, duplicated pickups or resource accumulation through retries.
 - [ ] [#101](https://github.com/jlogicgames/edgard_in_kimeria/issues/101) Check keyboard, gamepad and touch in both handedness layouts. Hints show

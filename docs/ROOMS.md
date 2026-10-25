@@ -302,6 +302,7 @@ layer offset that this text already includes in the visible position).
 | 192 | YellowMob (id 50), patrol 128–208, beside a one-tile step | **Stomp, alone**. Jump on it from above, or K. |
 | 240–320 | Quicksand, vertical Bat (272); optional one-way steps to the coins/Chicken | Hazard + Bat; not a taught mechanic |
 | 512–608 | Horizontal Bat (patrol now ends at about 608) and a second quicksand | Same, repeated |
+| 416–480 | **Ladder** (id 122, x 416, 240–320) up to a one-way ledge (id 121) under the Chicken | **Ladder, alone**: Up beside it takes hold; hint only in this room |
 | 656 | **Bomb** (id 54), moved from 128 | **Bomb, alone**: flat ground, 0.8 s warning (1.2 s with Assist), 64 px blast |
 | 832 | YellowMob (id 16), aggro zone 752–896 | Stomp repeated, first light combination: leave the blast, then meet the mob |
 | 912, 992 | Two tall walls | Wall jump |
@@ -488,3 +489,24 @@ Standing inspection ([D25](DECISIONS.md#d25-standing-look-with-delayed-vertical-
 adds a deliberate vertical offset to the ordinary room-clamped camera. Horizontal
 bounds and transition ownership remain unchanged. Pose/camera inspection never
 changes the active room, collision, hero position or visible carryable attachment.
+
+## Ladder practice revision (#99)
+
+`forest.tmx` SHA-256 `74efd4c2bd68c12027de9deca16a36e110f0743d0d475d5d5f7c846aca91521a`. Added to `forest-entry`:
+one-way ledge collision 121 (416, 240, 64×16) with matching Background tiles, and `Ladder`
+object 122 (`first-ladder`, SpawnPoints x 416, y 256 before the -16 layer offset, so the
+climbable span is world y 240–320, five 16 px frames). The Chicken (id 94) already hovers at
+the ledge's surface, so the ladder is an alternative to the stair-and-jump route, not a new
+requirement. No enemy, coin or artifact was added, moved or removed; the required route and
+the existing replay gates are untouched (all three replay routes still pass).
+
+`Ladder` is a SpawnPoints type: width exactly one frame (16), height a whole number of
+frames, top edge on the surface the hero should step onto, bottom edge on the floor. The room
+owning its centre owns it, like every other object. It carries no state, so death, collection
+return and Restart Level simply rebuild it. Put support at both ends: the hero ignores terrain
+while attached and steps off wherever the ends are.
+
+Safe test route: from the entrance walk to x≈424, hold Up to the ledge (about 1.2 s), step
+to the Chicken, then come back with Down from the ledge's left end or by jumping off. The
+nearest threat is the horizontal Bat (id 43), whose patrol begins about 64 px right of the
+ladder foot; it is not a taught mechanic here. This is a scripted check, not a human playtest.

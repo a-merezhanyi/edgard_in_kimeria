@@ -17,6 +17,7 @@ import com.jlogicsoftware.kimeria.entity.items.Bomb;
 import com.jlogicsoftware.kimeria.entity.items.Collectable;
 import com.jlogicsoftware.kimeria.entity.items.Trigger;
 import com.jlogicsoftware.kimeria.entity.objects.Escalator;
+import com.jlogicsoftware.kimeria.entity.objects.Ladder;
 import com.jlogicsoftware.kimeria.input.KeyBindings;
 import com.jlogicsoftware.kimeria.input.GameplayInput;
 import com.jlogicsoftware.kimeria.entity.items.Carryable;
@@ -35,7 +36,7 @@ import java.util.Set;
 
 /** Port of Dart's {@code Player}. */
 public class Player extends Actor<Player.State> implements CollideBody {
-    public enum State {IDLE, LOOK_UP, LOOK_DOWN, RUNNING, JUMPING, FALLING, HIT, ATTACKING, APPEARING, DISAPPEARING, CLIMBING}
+    public enum State {IDLE, LOOK_UP, LOOK_DOWN, RUNNING, JUMPING, FALLING, HIT, ATTACKING, APPEARING, DISAPPEARING, CLIMBING, LADDER}
 
     /**
      * Death and respawn, Katana Zero style. DYING: the world slows to a crawl so the player sees
@@ -56,7 +57,7 @@ public class Player extends Actor<Player.State> implements CollideBody {
         new Clip(State.JUMPING, 1, 8, true), new Clip(State.FALLING, 1, 4, true),
         new Clip(State.HIT, 2, 4, false), new Clip(State.ATTACKING, 7, 1, false),
         new Clip(State.APPEARING, 4, 3, false), new Clip(State.DISAPPEARING, 4, 6, true),
-        new Clip(State.CLIMBING, 1, 3, true)
+        new Clip(State.CLIMBING, 1, 3, true), new Clip(State.LADDER, 4, 8, true)
     };
 
     private static final float STEP_TIME = 0.1f;
@@ -67,6 +68,13 @@ public class Player extends Actor<Player.State> implements CollideBody {
     /** Longest real frame the death timer will count, so a stalled window cannot skip the slow motion. */
     private static final float MAX_REAL_STEP = 0.05f;
     private static final float UP_FOLLOW = 200f;
+    /** Ladder tuning: climb speed, how much of a jump a ladder leaves, and how long a release ignores the ladder. */
+    private static final float LADDER_CLIMB_SPEED = 70f;
+    private static final float LADDER_JUMP_SPEED_FACTOR = 0.7f;
+    private static final float LADDER_REGRAB_SECONDS = 0.25f;
+    /** Feet within this distance of a ladder's top surface count as standing on it (descent entry). */
+    private static final float LADDER_TOP_REACH = 2f;
+    private record LadderEntry(Ladder ladder, boolean descending) { }
 
     private final GameContext game;
     private Level level;
@@ -78,6 +86,10 @@ public class Player extends Actor<Player.State> implements CollideBody {
     private float wallJumpTimer = 0f;
     private boolean inQuickSand = false;
     private Escalator currentEscalator;
+    private Ladder ladder;
+    private float ladderRegrabTimer = 0f;
+    /** Up/Down that joined an Action press belongs to that action until released: it cannot grab or climb a ladder. */
+    private boolean verticalSpentOnAction;
 
     public float horizontalMovement = 0f;
     private final JumpBuffer jumpBuffer = new JumpBuffer();
@@ -136,6 +148,7 @@ public class Player extends Actor<Player.State> implements CollideBody {
     /** Called once by {@link Level} right after the player is placed at its spawn point. */
     public void spawned() {
         carried = null;
+        ladder = null;
         carryHintVisible = false;
         look.clear();
         resetJumpInput();
@@ -209,6 +222,8 @@ public class Player extends Actor<Player.State> implements CollideBody {
 
         readInput();
         if (!game.isGameStarted()) return;
+        updateLadderCooldown(dt);
+        tryGrabLadder();
 
         // A fixed 1/60 accumulator here (as in the original) fights the
         // renderer's own variable frame time: even at a rock-steady 60fps
@@ -228,7 +243,7 @@ public class Player extends Actor<Player.State> implements CollideBody {
         boolean jumpHeld = KeyBindings.of(game.leftHanded()).jumpHeld()
             || game.gamepad().jumpHeld() || game.touch().jumpHeld();
         boolean inspecting = !jumpHeld && onGround && horizontalMovement == 0 && !wallJumping && !clambering
-            && !isAttacking && !jumpBuffer.pending() && !victoryWalk;
+            && ladder == null && !isAttacking && !jumpBuffer.pending() && !victoryWalk;
         // Give pickup/activation chords extra time before inspection moves their target.
         // Use real eligibility: pressing Up can hide the pickup label without changing reach.
         boolean interactionAvailable = inspecting && (selectedCarryable() != null || selectedMechanism() != null);
@@ -239,16 +254,82 @@ public class Player extends Actor<Player.State> implements CollideBody {
         checkAttackCollisions(stepDt);
         if (victoryWalk) return;
         updatePlayerState();
-        updatePlayerMovement(stepDt);
-        checkHorizontalCollisions(level);
-        applyGravity(stepDt);
-        checkVerticalCollisions(level, stepDt);
+        if (ladder != null) climbLadder(stepDt);
+        if (ladder == null) {
+            updatePlayerMovement(stepDt);
+            checkHorizontalCollisions(level);
+            applyGravity(stepDt);
+            checkVerticalCollisions(level, stepDt);
+        }
         // Landing or grabbing a wall can make a buffered press usable in this very frame.
         tryJump(0f);
         checkGameplayOverlaps();
 
         updateCameraPosition();
-        tickAnimation(dt);
+        // The climbing pose holds still while the hero does.
+        if (ladder == null || ladderDirection() != 0) tickAnimation(dt);
+    }
+
+    public boolean onLadder() { return ladder != null; }
+
+    /** -1 up, +1 down, 0 while Action or its spent chord owns the vertical input. */
+    private float ladderDirection() { return verticalSpentOnAction ? 0 : gameplayInput.verticalMovement(); }
+
+    private void updateLadderCooldown(float dt) {
+        ladderRegrabTimer = Math.max(0f, ladderRegrabTimer - dt);
+        // A direction held with Action is spent on that action; releasing Action must not then climb.
+        if (!gameplayInput.verticalHeld()) verticalSpentOnAction = false;
+        else if (gameplayInput.verticalMovement() == 0) verticalSpentOnAction = true;
+    }
+
+    /** Where Up (ascending) or Down (descending) would take hold, ignoring input; null when no ladder is in reach. */
+    private LadderEntry ladderEntry() {
+        if (level == null || ladder != null) return null;
+        Rectangle body = hitboxBounds();
+        float feet = body.y + body.height, bodyCenter = body.x + body.width / 2f;
+        for (Ladder candidate : level.ladders) {
+            if (bodyCenter < candidate.getX() || bodyCenter > candidate.getX() + candidate.getWidth()) continue;
+            if (onGround && Math.abs(feet - candidate.topY()) <= LADDER_TOP_REACH) return new LadderEntry(candidate, true);
+            if (feet > candidate.topY() + LADDER_TOP_REACH && body.y < candidate.bottomY()) return new LadderEntry(candidate, false);
+        }
+        return null;
+    }
+
+    /** Held Up/Down takes hold, unless an Action chord still owns that direction. */
+    private void tryGrabLadder() {
+        if (ladderRegrabTimer > 0 || verticalSpentOnAction || isAttacking || !canFight()) return;
+        float vertical = ladderDirection();
+        LadderEntry entry = ladderEntry();
+        if (entry == null || vertical == 0 || (vertical > 0) != entry.descending()) return;
+        Rectangle body = hitboxBounds();
+        position.x += entry.ladder().centerX() - (body.x + body.width / 2f);
+        ladder = entry.ladder();
+        clambering = wallJumping = onGround = false;
+        horizontalMovement = 0;
+        velocity.setZero();
+    }
+
+    /** Moves along the ladder and steps off at either end onto whatever supports the hero there. */
+    private void climbLadder(float dt) {
+        tryJump(dt);
+        if (ladder == null) return;
+        velocity.setZero();
+        float direction = ladderDirection();
+        position.y += direction * LADDER_CLIMB_SPEED * dt;
+        float feet = position.y + hitbox.offsetY + hitbox.height;
+        if (direction < 0 && feet <= ladder.topY()) stepOffLadder(ladder.topY());
+        else if (direction > 0 && feet >= ladder.bottomY()) stepOffLadder(ladder.bottomY());
+    }
+
+    private void stepOffLadder(float surfaceY) {
+        position.y = surfaceY - hitbox.height - hitbox.offsetY;
+        onGround = true;
+        releaseLadder();
+    }
+
+    private void releaseLadder() {
+        ladder = null;
+        ladderRegrabTimer = LADDER_REGRAB_SECONDS;
     }
 
     // The camera used to pick one of two look-ahead targets from facingRight,
@@ -341,7 +422,7 @@ public class Player extends Actor<Player.State> implements CollideBody {
             else if (gameplayInput.up()) {
                 Trigger target = selectedMechanism();
                 if (target != null) level.activateTrigger(target);
-            } else if (!isAttacking && onGround && !jumpBuffer.pending() && !clambering) isAttacking = true;
+            } else if (!isAttacking && onGround && ladder == null && !jumpBuffer.pending() && !clambering) isAttacking = true;
         }
         if (gameplayInput.rangedPressed()) shoot();
     }
@@ -375,15 +456,24 @@ public class Player extends Actor<Player.State> implements CollideBody {
             case LOOK_UP, LOOK_DOWN -> IDLE_GRIP[0];
             case RUNNING -> RUN_GRIP[frame % RUN_GRIP.length];
             case ATTACKING -> ATTACK_GRIP[frame % ATTACK_GRIP.length];
-            case JUMPING -> JUMP_GRIP;
+            case JUMPING, LADDER -> JUMP_GRIP;
             case FALLING, HIT -> FALL_GRIP;
             default -> IDLE_GRIP[0];
         };
         out.set(position.x + (facingRight ? grip[0] : 2 * pivotX() - grip[0]), position.y + grip[1]);
     }
 
+    /** Rows of empty pixels under the feet in each climbing frame (measured on Player.png), so the feet reach the body box. */
+    private static final float[] LADDER_FRAME_DROP = {5, 7, 5, 6};
+
     @Override public void render(Batch batch) {
-        super.render(batch);
+        if (current == State.LADDER) {
+            var animation = animations.get(current);
+            float drop = LADDER_FRAME_DROP[animation.getKeyFrameIndex(stateTime) % LADDER_FRAME_DROP.length];
+            position.y += drop;
+            super.render(batch);
+            position.y -= drop;
+        } else super.render(batch);
         if (carried != null) carried.renderHeld(batch);
     }
     public int ammunition() { return level.rangedStock.count(); }
@@ -427,7 +517,7 @@ public class Player extends Actor<Player.State> implements CollideBody {
     }
 
     private void pickUpOrPlace() {
-        if (!canFight() || isAttacking || clambering) return;
+        if (!canFight() || isAttacking || clambering || ladder != null) return;
         if (carried != null) {
             Rectangle place = placementBounds();
             if (level.blocksObject(place, true)) return;
@@ -496,6 +586,19 @@ public class Player extends Actor<Player.State> implements CollideBody {
     public String contextHint() {
         if (level == null || !level.tutorialHintsActive() || !canFight() || isAttacking
             || (gameplayInput.up() && gameplayInput.down())) return "";
+        String interaction = interactionHint();
+        return interaction.isEmpty() ? ladderHint() : interaction;
+    }
+
+    /** Teaches how to take hold of a ladder in reach; a pickup or mechanism hint takes precedence. */
+    private String ladderHint() {
+        LadderEntry entry = ladderEntry();
+        if (entry == null) return "";
+        boolean descending = entry.descending();
+        return directionBinding(!descending, descending) + ": " + (descending ? Msg.CLIMB_DOWN : Msg.CLIMB).t(game.language());
+    }
+
+    private String interactionHint() {
         if (carried != null) {
             Trigger mechanism = selectedMechanism();
             if (!carryHintVisible) return mechanism == null ? "" : mechanismHint(mechanism);
@@ -519,6 +622,8 @@ public class Player extends Actor<Player.State> implements CollideBody {
 
     /** Mechanisms keep their local anchor even when the hero already carries another object. */
     public void contextHintPosition(Vector2 out) {
+        LadderEntry entry = interactionHint().isEmpty() ? ladderEntry() : null;
+        if (entry != null) { out.set(entry.ladder().centerX(), getY() + HINT_PLAYER_OFFSET_Y); return; }
         if (carried != null && selectedMechanism() == null) { out.set(carryHintAnchor); return; }
         Entity target = gameplayInput.up() ? level.mechanismFeedbackTarget(selectedMechanism()) : selectedCarryable();
         if (target == null) target = level.mechanismFeedbackTarget(selectedMechanism());
@@ -526,15 +631,21 @@ public class Player extends Actor<Player.State> implements CollideBody {
             target == null ? getY() + HINT_PLAYER_OFFSET_Y : Math.min(target.getY() - HINT_TARGET_OFFSET_Y, getY() + HINT_PLAYER_OFFSET_Y));
     }
 
-    private String actionBinding(boolean ranged, boolean up, boolean down) {
+    /** The vertical input the current device uses for Up and/or Down. */
+    private String directionBinding(boolean up, boolean down) {
         var keys = KeyBindings.of(game.leftHanded());
         var lang = game.language();
-        String direction = "";
-        if (!ranged && (up || down)) direction = switch (gameplayInput.device()) {
+        return switch (gameplayInput.device()) {
             case KEYBOARD -> up && down ? keys.upName() + "/" + keys.downName() : up ? keys.upName() : keys.downName();
             case GAMEPAD -> (game.leftHanded() ? Msg.RIGHT_STICK : Msg.LEFT_STICK).t(lang) + " " + (up ? Msg.UP : Msg.DOWN).t(lang);
             case TOUCH -> Msg.STICK.t(lang) + " " + (up ? Msg.UP : Msg.DOWN).t(lang);
         };
+    }
+
+    private String actionBinding(boolean ranged, boolean up, boolean down) {
+        var keys = KeyBindings.of(game.leftHanded());
+        var lang = game.language();
+        String direction = !ranged && (up || down) ? directionBinding(up, down) : "";
         String button = switch (gameplayInput.device()) {
             case KEYBOARD -> ranged ? keys.rangedName() : keys.actionName();
             case GAMEPAD -> game.leftHanded() ? (ranged ? Msg.DPAD_UP : Msg.DPAD_ACTION).t(lang) : ranged ? "Y" : "X/B";
@@ -568,6 +679,7 @@ public class Player extends Actor<Player.State> implements CollideBody {
         if (velocity.y > 0) next = State.FALLING;
         if (velocity.y < 0) next = State.JUMPING;
         if (clambering) next = State.CLIMBING;
+        if (ladder != null) next = State.LADDER;
         if (isAttacking) next = State.ATTACKING;
 
         setState(next);
@@ -600,7 +712,11 @@ public class Player extends Actor<Player.State> implements CollideBody {
 
     private void playerJump(float dt) {
         if (game.playSounds()) game.playSound("jump");
-        if (clambering) {
+        if (ladder != null) {
+            // Letting go with a hop: sideways drift comes from the held direction like any airborne jump.
+            velocity.y = -jumpForce() * LADDER_JUMP_SPEED_FACTOR;
+            releaseLadder();
+        } else if (clambering) {
             velocity.y = -jumpForce() * 0.7f;
             if (horizontalMovement < 0) velocity.x = jumpForce() * 0.5f;
             else if (horizontalMovement > 0) velocity.x = -jumpForce() * 0.5f;
@@ -617,7 +733,7 @@ public class Player extends Actor<Player.State> implements CollideBody {
     }
 
     private void tryJump(float dt) {
-        if (jumpBuffer.consume(!isAttacking && respawnPhase == RespawnPhase.NONE && (onGround || clambering))) {
+        if (jumpBuffer.consume(!isAttacking && respawnPhase == RespawnPhase.NONE && (onGround || clambering || ladder != null))) {
             playerJump(dt);
         }
     }

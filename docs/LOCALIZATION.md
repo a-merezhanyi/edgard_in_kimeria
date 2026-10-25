@@ -73,6 +73,7 @@ the render loop.
 | `HEALER_RETURN`, `HEALER_FIGHT` | Return for missing pickups / commit to the boss fight, with no return once it starts. |
 | `ABOUT_BODY*`, `ABOUT_GAMEPAD*` | Preserve exact key/button bindings for normal and left-handed modes. Key names such as J, K, L, Z, X, C identify physical controls. |
 | `ATTACK`, `INTERACT`, `SHOOT`, `PICK_UP`, `PUT_DOWN`, `THROW`, `FIREBALL`, `NO_AMMO`, `PLACE_BLOCKED`, `DIRECTION_CONFLICT` | Compact directional-action touch labels. Plain Action means sword; Up/Down selects mechanism or pickup/place. Ranged means object throw or consumable fireball. |
+| `CLIMB`, `CLIMB_DOWN` | First-room ladder hint verbs, shown after the Up/Down input: take hold and climb up, or step onto a ladder from its top edge. |
 | `ABOUT_RULES` | One-hit death, unlimited room retries, provisional pickup rollback and retained secured pickups. |
 | `LONGER_TRAP_WARNINGS` | The assist option extends trap warnings; it does not grant invulnerability. |
 

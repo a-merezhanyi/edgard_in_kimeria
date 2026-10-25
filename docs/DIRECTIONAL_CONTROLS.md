@@ -124,11 +124,10 @@ The persistent save still contains only a level index.
 
 ## Explicit dependencies
 
-- [#99](https://github.com/jlogicgames/edgard_in_kimeria/issues/99) still owns real
-  ladder traversal, ladder geometry and permitted actions while attached. No ladder
-  handler or ladder playtest is claimed here. `Player.verticalMovement()` exposes
-  Up/Down normally, but returns zero throughout a held directional Action; the
-  future ladder consumer must use it so one chord cannot climb and activate.
+- [#99](https://github.com/jlogicgames/edgard_in_kimeria/issues/99) is implemented:
+  see [Ladders](#ladders-99). `Player.verticalMovement()` still returns zero
+  throughout a held directional Action, and the ladder consumes it so one chord cannot
+  climb and activate. Only simulated-device tests are claimed; no physical ladder playtest.
 - [#97](https://github.com/jlogicgames/edgard_in_kimeria/issues/97) has a working
   stone/portable-torch baseline here; authored environmental puzzles and author
   acceptance remain in its prototype work.
@@ -214,5 +213,31 @@ frame with only the head changed. The camera-shake clamp now bounds only shake,
 so it cannot cancel deliberate inspection beyond room bounds. Keyboard/browser
 inspection verifies both poses, full excursions and return; original body/palm/
 sword/feet pixels are unchanged. Physical controller/phone checks remain #101;
-real ladder traversal and ladder-zone acceptance remain #99. Novice teaching
+ladder-zone physical-device acceptance remains with #101. Novice teaching
 acceptance remains #131. These are not claimed complete by simulated tests.
+
+<a id="ladders-99"></a>
+
+## Ladders (#99)
+
+Rules and rationale: [D27](DECISIONS.md#d27-vertical-ladders). Implemented 2026-10-25.
+
+| Situation | Up / Down | Action | Ranged | Jump |
+| --- | --- | --- | --- | --- |
+| Beside rungs, on the ground or airborne | Up takes hold (climb) | Sword as usual | As usual | As usual |
+| On the top surface | Down takes hold (descend); Up does nothing | Sword as usual | As usual | As usual |
+| Attached | Climb at 70 px/s; both ends step off | Does not swing; no pick up/put down | Throws a held object or spends a fireball; keeps the grip | Lets go with a 0.7× hop |
+| Up/Down + Action, anywhere | Not climbing: Action owns the direction | Operates a mechanism in reach (Up) | | |
+
+The direction held with an Action press stays spent until it is released, on the ground
+and on the ladder, so a chord can climb or operate, never both, and releasing Action while
+still holding Up does not climb. Up and Down together climb nothing. Keyboard (both
+handedness layouts), gamepad movement stick/D-pad and the touch stick feed the same
+input; the lesson text names the device's own label (`W`, `Left stick up`, `Stick up`).
+
+Tests (`DirectionalActionsTest`, production Player/Level, simulated devices): climb to the
+top and step onto the ledge, descend and step off, no regrab at the top, chord on the ground
+and on the ladder with no climb after release, sword/pick up unavailable and ranged working
+while attached, jump-off with direction, gamepad stick, touch stick with an Action touch,
+and the first-room hint present only in the first Forest room. Not checked: a physical
+controller, a physical multitouch phone, and novice comprehension.

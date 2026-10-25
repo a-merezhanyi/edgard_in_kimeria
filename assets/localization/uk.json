@@ -66,6 +66,8 @@
   "ACTION": "Дія",
   "PICK_UP": "Взяти",
   "PUT_DOWN": "Покласти",
+  "CLIMB": "Лізти",
+  "CLIMB_DOWN": "Лізти вниз",
   "THROW": "Кинути",
   "FIREBALL": "Вогонь",
   "NO_AMMO": "Порожньо",

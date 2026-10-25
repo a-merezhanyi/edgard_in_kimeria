@@ -6,7 +6,7 @@ from PIL import Image, ImageOps
 ROOT = Path(__file__).resolve().parents[1]
 from sprite_layouts import (WORLD_FRAMES, WORLD_PALETTE_SIZE, HUD_PALETTE_SIZE,
     WORLD_PALETTE_BITS, HUD_PALETTE_BITS, ALPHA_THRESHOLD, OPAQUE_ALPHA,
-    LEVER_FRAME_SIZE, LEVER_FRAME_COUNT, HUD_ICON_SIZE)
+    LEVER_FRAME_SIZE, LEVER_FRAME_COUNT, LADDER_FRAME_SIZE, LADDER_FRAME_COUNT, HUD_ICON_SIZE)
 
 
 def export(source, target, size, pixel_art):
@@ -45,11 +45,25 @@ def export_levers():
     print(target.relative_to(ROOT))
 
 
+def export_ladders():
+    # The master is authored at native size; the two registered frames (top, middle) share one palette.
+    source = Image.open(ROOT / 'art/objects/ladder-pixel.png').convert('RGBA')
+    expected = (LADDER_FRAME_SIZE * LADDER_FRAME_COUNT, LADDER_FRAME_SIZE)
+    if source.size != expected:
+        raise ValueError(f'Ladder master must be a native {expected} sheet: top, middle')
+    source.putalpha(source.getchannel('A').point(lambda alpha: OPAQUE_ALPHA if alpha >= ALPHA_THRESHOLD else 0))
+    strip = source.quantize(colors=WORLD_PALETTE_SIZE, method=Image.Quantize.FASTOCTREE, dither=Image.Dither.NONE)
+    target = ROOT / 'assets/images/objects/ladder.png'
+    strip.save(target, bits=WORLD_PALETTE_BITS)
+    print(target.relative_to(ROOT))
+
+
 if __name__ == '__main__':
     for name, size in WORLD_FRAMES.items():
         export(ROOT / 'art/objects' / f'{name}-pixel.png',
             ROOT / 'assets/images/objects' / f'{name}.png', size, True)
     export_levers()
+    export_ladders()
     for name in ('coin', 'chicken', 'key', 'fireball'):
         source = ROOT / 'art/hud' / f'{name}-master.png'
         export(source, ROOT / 'assets/images/HUD' / f'{name}.png', HUD_ICON_SIZE, False)

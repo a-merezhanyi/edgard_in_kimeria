@@ -33,6 +33,7 @@ import com.jlogicsoftware.kimeria.entity.items.Lever;
 import com.jlogicsoftware.kimeria.entity.items.Trigger;
 import com.jlogicsoftware.kimeria.entity.items.Wall;
 import com.jlogicsoftware.kimeria.entity.objects.Escalator;
+import com.jlogicsoftware.kimeria.entity.objects.Ladder;
 import com.jlogicsoftware.kimeria.entity.objects.FallingPlatform;
 import com.jlogicsoftware.kimeria.entity.player.Player;
 import com.jlogicsoftware.kimeria.tiled.TiledMapData;
@@ -67,6 +68,7 @@ public class Level implements WorldObject {
     public final List<CollisionBlock> collisionBlocks = new ArrayList<>();
     public final List<Escalator> escalators = new ArrayList<>();
     public final List<Trigger> triggers = new ArrayList<>();
+    public final List<Ladder> ladders = new ArrayList<>();
     public final List<FallingPlatform> fallingPlatforms = new ArrayList<>();
     /** Everything else: enemies, collectables, bombs, checkpoints, torches, fireflies, rain. */
     public final List<WorldObject> objects = new ArrayList<>();
@@ -289,7 +291,7 @@ public class Level implements WorldObject {
         else rangedStock.restore(roomStartAmmo);
         revisiting = revisit;
         game.artifacts().resetRoom();
-        objects.clear(); collisionBlocks.clear(); escalators.clear(); triggers.clear(); fallingPlatforms.clear();
+        objects.clear(); collisionBlocks.clear(); escalators.clear(); triggers.clear(); ladders.clear(); fallingPlatforms.clear();
         pendingSpawns.clear(); pendingPickups.clear();
         boss = null;
         roomEnemies.clear(); roomTraps.clear(); roomStateOwners.clear();
@@ -560,6 +562,11 @@ public class Level implements WorldObject {
                     triggers.add(trigger);
                 }
                 case "Actionable" -> spawnActionable(o);
+                case "Ladder" -> {
+                    Ladder ladder = new Ladder(assets, o.x, o.y, o.width, o.height);
+                    ladders.add(ladder);
+                    objects.add(ladder);
+                }
                 case "Escalator" -> {
                     Escalator escalator = new Escalator(assets, o.x, o.y, o.width, o.height,
                         o.propBool("isVertical", false), o.propFloat("offNeg", 0), o.propFloat("offPos", 0), o.name);
@@ -794,6 +801,9 @@ public class Level implements WorldObject {
         for (Escalator e : escalators) {
             sr.rect(e.getX(), e.getY(), e.getWidth(), e.getHeight());
         }
+
+        sr.setColor(com.badlogic.gdx.graphics.Color.SKY);
+        for (Ladder ladder : ladders) sr.rect(ladder.getX(), ladder.getY(), ladder.getWidth(), ladder.getHeight());
 
         sr.setColor(0.9f, 0.3f, 0.3f, 1f);
         drawHitbox(sr, player);
