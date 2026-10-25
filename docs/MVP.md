@@ -17,7 +17,11 @@ levels. This MVP does not add another map, another boss, a new quest or destinat
 The current Chicken and Key placements in `forest` are accepted as final for this MVP
 (author decision, 2026-10-19, #72). Keep their existing positions; no relocation or
 additional artifact challenge paths are planned. Both artifacts and the healer elixir
-remain optional. `forest-1` has no artifact set or full-set reward in this MVP.
+remain optional. Under the campaign-wide [D26 authoring rule](DECISIONS.md#d26-observe-plan-before-committing),
+a one-shot support may make the optional Key route unavailable until Restart Level, but
+the canopy exit remains reachable without it. Runtime retention is tracked in #158;
+acceptance for each campaign map is verified separately. `forest-1` has no artifact set
+or full-set reward in this MVP.
 
 ## Complete game loop
 

@@ -158,6 +158,69 @@ class RoomReplayTest {
 
     }
 
+    @Test void realCanopyRouteKeepsCollapsedPlatformAndMainExitOpenUntilFreshLevel() throws Exception {
+        Level level = new Level(assets, game, player(), "forest", Rectangle::new);
+        secureCombatAndCoins(level);
+        level.enterNextRoom(player());
+        secureCombatAndCoins(level);
+
+        float firstPass = replay(level, "forest-canopy", false, 0, new float[]{1400, 1460, 1555});
+        assertTrue(firstPass <= COLLECTION_LIMIT);
+        assertFalse(artifacts.items().stream().anyMatch(item -> item.type() == ItemType.KEY),
+            "The first route intentionally misses the Key");
+        var firstPlatform = (com.jlogicsoftware.kimeria.entity.objects.FallingPlatform) roomOwner(level, 115);
+        assertTrue(firstPlatform.isFalling(), "Real movement and jumps must touch platform 115 before the Key route");
+        for (int frame = 0; frame < 300 && !firstPlatform.isRemoved(); frame++) {
+            held.clear(); pressed.clear();
+            level.update(REAL_STEP);
+        }
+        assertTrue(firstPlatform.isRemoved(), "The real-input warning must finish before the collection return");
+        level.prepareHealer();
+        level.returnForCollection(player());
+
+        float entry = replay(level, "forest-entry", false, 0, new float[]{95, 225, 345, 535, 860, 940});
+        assertTrue(entry <= REQUIRED_LIMIT);
+        level.enterNextRoom(player());
+        var platform = (com.jlogicsoftware.kimeria.entity.objects.FallingPlatform) roomOwner(level, 115);
+        assertNotSame(firstPlatform, platform);
+        assertTrue(platform.isRemoved(), "Collection return preserves the secured collapsed platform state");
+        assertTrue(level.fallingPlatforms.isEmpty(), "Removed platform must be pruned from live collision/update lists");
+
+        float secondPass = replay(level, "forest-canopy", false, 0, new float[]{1400, 1460, 1555});
+        assertTrue(secondPass <= COLLECTION_LIMIT);
+        assertFalse(artifacts.items().stream().anyMatch(item -> item.type() == ItemType.KEY),
+            "The optional Key may be missed when its one-shot route support remains collapsed");
+        level.enterNextRoom(player());
+        assertTrue(platform.isRemoved(), "Securing the main exit retains the collapsed platform");
+
+        Level freshLevel = new Level(assets, game, player(), "forest", Rectangle::new);
+        secureCombatAndCoins(freshLevel);
+        freshLevel.enterNextRoom(player());
+        secureCombatAndCoins(freshLevel);
+        var authoredPlatform = (com.jlogicsoftware.kimeria.entity.objects.FallingPlatform) roomOwner(freshLevel, 115);
+        assertFalse(authoredPlatform.isRemoved());
+        assertFalse(authoredPlatform.isFalling(), "A fresh Level restores the authored one-shot support");
+        float freshKeyRoute = replay(freshLevel, "forest-canopy", false, 0,
+            new float[]{1400, 1460, 1555, 1640}, true);
+        assertTrue(freshKeyRoute <= COLLECTION_LIMIT);
+        assertTrue(artifacts.items().stream().anyMatch(item -> item.type() == ItemType.KEY),
+            "The fresh-level full artifact route can still collect the optional Key");
+    }
+
+    private void secureCombatAndCoins(Level level) {
+        for (var object : new java.util.ArrayList<>(level.objects)) {
+            if (object instanceof Enemy<?> enemy) enemy.collidedWithActor(true);
+            if (object instanceof Collectable item && item.type() == ItemType.COIN) item.collideWithPlayer();
+            if (object instanceof Bomb bomb) { bomb.collideWithPlayer(); bomb.update(.81f); }
+        }
+    }
+
+    private com.jlogicsoftware.kimeria.entity.WorldObject roomOwner(Level level, int id) throws Exception {
+        var owners = Level.class.getDeclaredField("roomStateOwners");
+        owners.setAccessible(true);
+        return ((java.util.Map<Integer, com.jlogicsoftware.kimeria.entity.WorldObject>) owners.get(level)).get(id);
+    }
+
     private Player player() { return new Player(assets, game, 0, 0); }
 
     @Test void gameplayContactCollectsTheChickenAndRoomRetryRestoresIt() {

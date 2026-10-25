@@ -23,4 +23,9 @@ public class Wall extends CollisionBlock implements Actionable {
         setActive(false);
         removeFromParent();
     }
+
+    public void restoreState(boolean active, boolean removed) {
+        setActive(active);
+        this.removed = removed;
+    }
 }

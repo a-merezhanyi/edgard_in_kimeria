@@ -72,12 +72,49 @@ Pause freezes the fade; Resume continues it. Restart Level and leaving gameplay
 cancel the transition.
 
 Death keeps the existing slow-motion/fast eased camera return and respawn
-animation. It rebuilds only the current room's enemies, items, bombs, triggers,
-mutable walls, moving platforms, and falling platforms from the already-loaded
-TMX descriptions, discarding that attempt's queued effects. Passed rooms retain their enemy/trap progression without updating. Future rooms start their
-first attempt only when entered. A healer collection return rebuilds traversal objects while
-retaining secured pickups, enemy state and trap state; see [HEALER.md](HEALER.md) for the
-first-visit/revisit death rules and the complete reset/retention policy.
+animation. It rebuilds the current room graph, restores that room's latest secured
+snapshots for mutable room owners, and discards the attempt's queued effects. On a
+first visit the authored map is the baseline. Falling platforms retain their secured
+position, phase, timers and removed state, including after death; warning lights are
+reconstructed without their old particles. A spent one-shot support may close an optional
+pickup route until Restart Level, while every mandatory exit and boss route remains
+passable. Other mutable objects, such as portable tools, switched torches, walls and
+moving platforms, roll back to the latest secured state. Passed rooms freeze and keep
+their secured progression without updating. Future rooms start their first attempt only
+when entered. A healer collection return secures the current room and applies the same
+owner policy while retaining secured pickups, enemies and traps; see [HEALER.md](HEALER.md)
+for the full state table.
+
+Before a room is secured, a held carryable is released onto clear, stable static collision
+support within one hero-width of that room's authored entrance, where the player can reach
+it on return. The tool remains owned by that room; it is not transported in the fresh
+hero's hands.
+
+<a id="puzzle-platformer-authoring-contract-d26"></a>
+
+## Puzzle-platformer authoring contract (D26)
+
+Design from [D26](DECISIONS.md#d26-observe-plan-before-committing) and the
+[campaign intent](GAME_DESIGN.md#observe-plan-and-commit-d26): let players study a room,
+form a plan, then commit to a jump or interaction. A one-shot support, switched mechanism
+or moved tool may remain changed after a secured forward exit or healer return, so later
+searches for secrets can differ from the first pass.
+
+From every reachable secured state produced by supported player actions, keep every
+mandatory room exit, boss and required tablet fragment reachable without a forced Restart
+Level. Optional secrets and ingredients may be missed until Restart Level.
+Before an irreversible action, show the player enough about the one-shot behavior and its
+consequence to make the risk understandable. A reset button does not excuse a hidden trap.
+Do not reset or rearm an object merely to make a gate pass. Test the route after securing
+spent supports and saved mechanism/tool state, verify the required objective still works,
+and verify that Restart Level restores the authored opportunity. Do not weaken the existing
+20-second mastered-route or 60-second first-learning hypotheses to disguise an inaccessible
+mandatory route; those budgets remain separate from this contract.
+
+The forest Key case is optional: spent platform 115 may close its route until Restart Level,
+but the canopy exit remains reachable without the Key. Runtime retention is tracked in #158;
+acceptance for each campaign map is verified separately. The authoring rule applies to
+future rooms and all required tablet fragments.
 
 Collected object IDs remain provisional until leaving the room, reaching
 level completion or entering/returning from the healer; death before then restores those objects. The current coin
@@ -282,15 +319,16 @@ the blast square (about 624–688) and a running escape of about 64 px overlap n
 | 1344 | Start | Safe entrance |
 | 1440–1488 | One-tile step; RedMob (id 68), zone 1408–1488 | Sword again, now beside terrain |
 | 1488 | Optional one-way platform | Start of the optional climb |
-| 1568 | **FallingPlatform** (id 115, was a fixed platform) holding coin 87 | **Falling platform, alone**: 1 s warning (1.5 s with Assist). Ground is 80 px below; isolated from bombs and nearby walking enemies at spawn; a bad landing costs only the climb |
+| 1568 | **FallingPlatform** (id 115, was a fixed platform) holding coin 87 | **Falling platform, alone**: 1 s warning (1.5 s with Assist). Ground is 80 px below; isolated from bombs and nearby walking enemies at spawn; a bad landing can spend the optional ascent |
 | 1648–1728 | One-way platform and the Key | Optional reward |
 | 1760 | Vertical Bat near the Key | Optional hazard |
 | 1872 | RoomExit | |
 
-The collapse is one-way for that attempt, so a player who lets it fall without
-reaching the next platform loses the optional Key/coin ascent until death, a room
-retry or the healer's collection return rebuilds it (D7). The required route never
-needs the platform. Every optional pickup remains reachable.
+The collapse is one-way and remains secured after room exit or healer return. A player
+who lets it fall before reaching the upper route may lose the optional Key/coin ascent
+until Restart Level. The required route never needs the platform. This map fact makes
+the one-shot cue and optional-route consequence an explicit manual fairness check under
+D26; older teaching-layout route results below do not establish that acceptance.
 
 ### `forest-1` (level two, unchanged)
 
@@ -303,7 +341,8 @@ the map, not exercised in play; the author did walk over the platforms without t
 
 ### Evidence and limits
 
-The teaching-layout implementation recorded 131 passing core tests. `RoomReplayTest`
+The teaching-layout implementation recorded 131 passing core tests under its then-current
+reset policy; these are historical results, not D26 policy validation. `RoomReplayTest`
 re-measured every route on this layout
 with real input and hazards on, three identical attempts each: `forest-entry` 16.27 s
 required / 20.00 s all coins, `forest-canopy` 5.00 s / 5.00 s, `forest-1` 5.32 s, and the
@@ -331,6 +370,10 @@ the test version.
 
 
 ## Current replay measurements after removing bat slow motion
+
+These 2026-10-20 timings predate #158's secured falling-platform retention. They remain
+movement/replay references, not evidence that Key 95 remains reachable after platform 115
+has been secured collapsed. Final-policy route evidence is in [HEALER.md](HEALER.md#room-state-retention-validation-2026-10-24-158).
 
 The historical 2026-10-14 table above includes the superseded proximity slow motion.
 Gameplay now runs at normal speed around bats; death still owns its separate slow-motion
@@ -395,14 +438,16 @@ and 119 (linked light). Collision geometry, enemies and collection identities ar
 unchanged. See [the control contract and dependencies](DIRECTIONAL_CONTROLS.md).
 `Stone` and `CarryableTorch` are supported SpawnPoints types; give each a unique
 ID and a 12 × 12 rectangle inside its owner room. Decorative `Torch` remains
-stationary; portable torches use the explicit new type. They reset with traversal
-objects, including on collection return; they do not enter persistent inventory.
+stationary; portable torches use the explicit new type. Their secured position and state
+resume on collection return and roll back to the latest secured snapshot on death; they do
+not enter persistent inventory. This replaces the earlier reconstruction rule from D23.
 
 [D23](DECISIONS.md#d23-one-visible-carried-object-with-no-separate-pocket), accepted
 2026-10-23, fixes one shared carryable slot and visible front-hand presentation.
 Author puzzles around choosing, placing and retrieving one object; do not assume
-a pocket stone can accompany a hand torch. Current room reconstruction and release
-at forward room exit remain in force. The decision adds no cross-room transport,
+a pocket stone can accompany a hand torch. Secured tool state resumes on collection
+return and rolls back on death; a held tool is released onto safe support before forward
+room exit. The decision adds no cross-room transport,
 extra inventory snapshot or persistent save field. Both stone and torch now render
 in the animated front hand; the stone's old hidden treatment was never a second slot.
 
@@ -436,7 +481,8 @@ requests a visible 16×16 up/down control at the zone's bottom centre and must l
 exactly one `Actionable` Torch by name. Selection highlights this lever, while the
 linked Torch (119) remains at its independently authored wall position. The state
 comes from the torch: up/on, down/off. No new object IDs or collision geometry are
-introduced. Room resets rebuild both objects from their authored initial state.
+introduced. A first visit or fresh Level uses authored state; a room retry or collection
+return restores the secured torch state, from which the lever is rebuilt.
 
 Standing inspection ([D25](DECISIONS.md#d25-standing-look-with-delayed-vertical-inspection))
 adds a deliberate vertical offset to the ordinary room-clamped camera. Horizontal

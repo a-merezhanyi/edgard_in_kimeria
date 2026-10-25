@@ -147,8 +147,12 @@ Empowered sword hits produce 48 thicker blood droplets with longer trails and a 
 Restart Level, transition, New Game, Continue and leaving the run clear the effect.
 
 Before committing to the fight, return to the forest entrance as often as needed. Secured
-pickups, enemy state and trap state are retained; platforms and switches/linked traversal
-objects are restored. Previously collected items and killed enemies never respawn on return.
+pickups, enemy state, traps and mutable traversal-object state are retained on collection
+return. A spent falling platform or changed mechanism may leave an optional pickup route
+closed until Restart Level; the mandatory canopy exit and boss path remain open. Previously
+collected items and killed enemies never respawn on return. Runtime retention is tracked in
+#158; acceptance for each campaign map is verified separately. See the [state policy](HEALER.md#state-policy)
+and [authoring contract](ROOMS.md#puzzle-platformer-authoring-contract-d26).
 After choosing the fight, neither backward return nor progression past the boss is possible
 until victory. See [Healer dialogue and returns](HEALER.md) for input, payment,
-room-death rollback, traversal reset policy and validation.
+room-death rollback, traversal-state policy and validation.

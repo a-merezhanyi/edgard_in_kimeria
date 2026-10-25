@@ -9,6 +9,7 @@ import com.jlogicsoftware.kimeria.Assets;
 import com.jlogicsoftware.kimeria.ArtifactInventory;
 import com.jlogicsoftware.kimeria.GameContext;
 import com.jlogicsoftware.kimeria.TrapWarnings;
+import com.jlogicsoftware.kimeria.effects.Torch;
 import com.jlogicsoftware.kimeria.entity.Entity;
 import com.jlogicsoftware.kimeria.entity.items.Collectable;
 import com.jlogicsoftware.kimeria.entity.items.ItemType;
@@ -277,6 +278,164 @@ class RoomTest {
             .filter(c -> wanted.contains(c.type())).forEach(Collectable::collideWithPlayer);
     }
 
+    private com.jlogicsoftware.kimeria.entity.WorldObject roomOwner(Level level, int id) throws Exception {
+        var owners = Level.class.getDeclaredField("roomStateOwners");
+        owners.setAccessible(true);
+        return ((java.util.Map<Integer, com.jlogicsoftware.kimeria.entity.WorldObject>) owners.get(level)).get(id);
+    }
+
+    @Test void carryableHandoffUsesSupportedRoomPlacementAndClearsBothHolderReferences() throws Exception {
+        Level level = forest();
+        var tool = level.objects.stream().filter(com.jlogicsoftware.kimeria.entity.items.Carryable.class::isInstance)
+            .map(com.jlogicsoftware.kimeria.entity.items.Carryable.class::cast)
+            .filter(carryable -> carryable.id == 116).findFirst().orElseThrow();
+        Player oldPlayer = level.player;
+        var carriedField = Player.class.getDeclaredField("carried");
+        carriedField.setAccessible(true);
+        var authoredCollisionBlocks = new java.util.ArrayList<>(level.collisionBlocks);
+        level.collisionBlocks.clear();
+        level.collisionBlocks.add(com.jlogicsoftware.kimeria.entity.environment.CollisionBlock.platform(48, 320, 12, 16));
+        assertNull(level.findSafeCarryablePlacement(12), "A support too narrow for the full tool footprint is not a safe fallback");
+        level.collisionBlocks.clear();
+        level.collisionBlocks.add(com.jlogicsoftware.kimeria.entity.environment.CollisionBlock.platform(400, 320, 200, 16));
+        assertNull(level.findSafeCarryablePlacement(12), "A distant wide floor is outside the reachable entrance search");
+        level.collisionBlocks.clear();
+        level.collisionBlocks.addAll(authoredCollisionBlocks);
+        var blockedAnchor = com.jlogicsoftware.kimeria.entity.environment.CollisionBlock.wall(64, 308, 12, 12);
+        var higherSupport = com.jlogicsoftware.kimeria.entity.environment.CollisionBlock.platform(64, 240, 96, 16);
+        level.collisionBlocks.add(blockedAnchor);
+        level.collisionBlocks.add(higherSupport);
+        carriedField.set(oldPlayer, tool);
+        oldPlayer.position.set(250, 272); // The held hand is over the authored quicksand pit.
+        tool.pickUp(oldPlayer);
+        oldPlayer.releaseCarriedForRoomSecure();
+        assertNull(oldPlayer.carriedObject());
+        assertFalse(tool.isHeld());
+        assertSupportedAndRetrievable(level, tool);
+
+        oldPlayer.position.set(1260, 272); // The held hand would cross the room boundary here.
+        carriedField.set(oldPlayer, tool);
+        tool.pickUp(oldPlayer);
+        oldPlayer.releaseCarriedForRoomSecure();
+        assertNull(oldPlayer.carriedObject());
+        assertFalse(tool.isHeld());
+        assertSupportedAndRetrievable(level, tool);
+
+        carriedField.set(oldPlayer, tool);
+        tool.pickUp(oldPlayer);
+
+        level.enterNextRoom(player());
+
+        assertNull(oldPlayer.carriedObject());
+        assertFalse(tool.isHeld());
+        assertEquals(0, level.objects.stream().filter(com.jlogicsoftware.kimeria.entity.items.Carryable.class::isInstance)
+            .map(com.jlogicsoftware.kimeria.entity.items.Carryable.class::cast)
+            .filter(carryable -> carryable.id == 116).count());
+
+        level.returnForCollection(player());
+        var restored = level.objects.stream().filter(com.jlogicsoftware.kimeria.entity.items.Carryable.class::isInstance)
+            .map(com.jlogicsoftware.kimeria.entity.items.Carryable.class::cast)
+            .filter(carryable -> carryable.id == 116).findFirst().orElseThrow();
+        assertFalse(restored.isHeld());
+        assertSupportedAndRetrievable(level, restored);
+        float restingY = restored.getY();
+        for (int step = 0; step < 180; step++) restored.update(1f / 60f);
+        assertFalse(restored.isRemoved());
+        assertEquals(restingY, restored.getY(), .01f, "Room updates must keep the released tool supported");
+        assertEquals(new Vector2(76, 308), new Vector2(restored.getX(), restored.getY()),
+            "A blocked entrance anchor should use adjacent space on the same reachable floor");
+        assertFalse(new Rectangle(64, 308, 12, 12).overlaps(restored.bounds()));
+        assertTrue(restored.getY() > higherSupport.getY(), "A nearby high ledge is not a preferred handoff surface");
+    }
+
+    @Test void thrownCarryableKeepsItsLatestVelocityAndFreezesWhileItsRoomIsInactive() throws Exception {
+        Level level = forest();
+        var tools = java.util.List.of(
+            (com.jlogicsoftware.kimeria.entity.items.Carryable) roomOwner(level, 116),
+            (com.jlogicsoftware.kimeria.entity.items.Carryable) roomOwner(level, 117));
+        tools.get(0).release(80, 308, true, true);
+        tools.get(1).release(96, 308, true, true);
+        var secured = tools.stream().map(com.jlogicsoftware.kimeria.entity.items.Carryable::snapshot).toList();
+        level.enterNextRoom(player());
+        for (int step = 0; step < 60; step++) level.update(1f / 60f);
+        assertEquals(secured, tools.stream().map(com.jlogicsoftware.kimeria.entity.items.Carryable::snapshot).toList(),
+            "Inactive stone and carryable torch owners do not advance their thrown motion");
+
+        level.prepareHealer();
+        level.returnForCollection(player());
+        for (int index = 0; index < tools.size(); index++) {
+            var resumed = (com.jlogicsoftware.kimeria.entity.items.Carryable) roomOwner(level, 116 + index);
+            assertEquals(secured.get(index), resumed.snapshot(), "Revisit restores position, velocity, thrown, and removed fields");
+            resumed.update(.05f);
+            assertTrue(resumed.getX() > secured.get(index).x(), "A restored thrown tool resumes its saved motion");
+        }
+    }
+
+    @Test void fixedTorchAndItsLeverRestoreTheOwnedFireStateAndCanToggleAgain() throws Exception {
+        Level level = forest();
+        var dimTarget = new com.jlogicsoftware.kimeria.tiled.TiledObject();
+        dimTarget.id = 2011; dimTarget.type = "Actionable"; dimTarget.name = "shared-light";
+        dimTarget.x = 160; dimTarget.y = 240; dimTarget.width = 12; dimTarget.height = 12;
+        dimTarget.properties.put("type", "Torch"); dimTarget.properties.put("Intensity", "0");
+        var brightTarget = new com.jlogicsoftware.kimeria.tiled.TiledObject();
+        brightTarget.id = 2012; brightTarget.type = "Actionable"; brightTarget.name = "shared-light";
+        brightTarget.x = 192; brightTarget.y = 240; brightTarget.width = 12; brightTarget.height = 12;
+        brightTarget.properties.put("type", "Torch"); brightTarget.properties.put("Intensity", "80");
+        level.map.layer("SpawnPoints").add(dimTarget);
+        level.map.layer("SpawnPoints").add(brightTarget);
+        level.resetCurrentRoom(player());
+        var torch = (Torch) roomOwner(level, 119);
+        var firstShared = (Torch) roomOwner(level, 2011);
+        var secondShared = (Torch) roomOwner(level, 2012);
+        firstShared.performAction();
+        assertEquals(200, firstShared.intensity());
+        assertEquals(80, secondShared.intensity(), "Owners with one target name keep separate authored-ID snapshots");
+        var trigger = level.triggers.stream().filter(t -> t.targetId.equals("practice-light")).findFirst().orElseThrow();
+        assertFalse(torch.isBurning());
+        level.activateTrigger(trigger);
+        assertTrue(torch.isBurning());
+        assertEquals(200, torch.intensity());
+
+        level.enterNextRoom(player());
+        level.prepareHealer();
+        level.returnForCollection(player());
+        var restoredTorch = (Torch) roomOwner(level, 119);
+        assertTrue(restoredTorch.isBurning());
+        assertEquals(200, restoredTorch.intensity());
+        assertEquals(200, ((Torch) roomOwner(level, 2011)).intensity());
+        assertEquals(80, ((Torch) roomOwner(level, 2012)).intensity());
+        var restoredTrigger = level.triggers.stream().filter(t -> t.targetId.equals("practice-light")).findFirst().orElseThrow();
+        level.activateTrigger(restoredTrigger);
+        assertFalse(restoredTorch.isBurning(), "The lever derives its state from the restored torch and toggles it off");
+        assertEquals(0, restoredTorch.intensity());
+
+        level.resetCurrentRoom(player());
+        restoredTorch = (Torch) roomOwner(level, 119);
+        assertTrue(restoredTorch.isBurning(), "Death rollback restores the last secured lit state");
+        restoredTrigger = level.triggers.stream().filter(t -> t.targetId.equals("practice-light")).findFirst().orElseThrow();
+        level.activateTrigger(restoredTrigger);
+
+        level.enterNextRoom(player());
+        level.prepareHealer();
+        level.returnForCollection(player());
+        restoredTorch = (Torch) roomOwner(level, 119);
+        assertFalse(restoredTorch.isBurning());
+        assertEquals(0, restoredTorch.intensity());
+
+        Level fresh = forest();
+        assertFalse(((Torch) roomOwner(fresh, 119)).isBurning(), "A fresh Level starts from authored torch state");
+    }
+
+    private void assertSupportedAndRetrievable(Level level, com.jlogicsoftware.kimeria.entity.items.Carryable carryable) {
+        assertTrue(level.currentRoomBounds().contains(carryable.bounds()));
+        assertFalse(level.blocksObject(carryable.bounds(), true));
+        assertTrue(level.collisionBlocks.stream().filter(block -> block.isActive() && !block.isQuickSand())
+            .anyMatch(block -> Math.abs(carryable.getY() + carryable.getHeight() - block.getY()) <= .1f
+                && carryable.getX() >= block.getX()
+                && carryable.getX() + carryable.getWidth() <= block.getX() + block.getWidth()),
+            "The full carryable footprint needs stable collision support");
+    }
+
     @Test void healerNeedsEveryUniqueForestCoinAndPaysOnceWithoutSpendingEarlierCoins() {
         coins.set(19); // Currency from another level.
         Level level = forest();
@@ -327,7 +486,7 @@ class RoomTest {
         }
     }
 
-    @Test void collectionTripsKeepKillsTrapsAndUniqueCoinsAndRollbackOnlyNewPickups() {
+    @Test void collectionTripsKeepKillsTrapsAndUniqueCoinsAndRollbackOnlyNewPickups() throws Exception {
         Level level = forest();
         var enemies = level.objects.stream().filter(com.jlogicsoftware.kimeria.entity.enemy.Enemy.class::isInstance)
             .map(o -> (com.jlogicsoftware.kimeria.entity.enemy.Enemy<?>) o).toList();
@@ -348,6 +507,9 @@ class RoomTest {
             level.returnForCollection(player());
             assertEquals(new Vector2(64, 272), level.player.position);
             assertEquals(6, coins.get());
+            assertEquals(1, level.objects.stream().filter(com.jlogicsoftware.kimeria.entity.items.Carryable.class::isInstance)
+                .map(com.jlogicsoftware.kimeria.entity.items.Carryable.class::cast).filter(c -> c.id == 116).count(),
+                "Each activated room has one live instance per authored carryable ID");
             assertFalse(level.objects.contains(killed));
             if (trip == 0) {
                 assertTrue(level.objects.contains(surviving));
@@ -365,6 +527,10 @@ class RoomTest {
             level.enterNextRoom(player());
             level.prepareHealer();
             assertEquals(6, level.forestCoinsSecured());
+            var visitsField = Level.class.getDeclaredField("visits");
+            visitsField.setAccessible(true);
+            assertEquals(2, ((java.util.Map<?, ?>) visitsField.get(level)).size(),
+                "Secured snapshots remain bounded to the two visited rooms across repeated returns");
         }
         level.returnForCollection(player());
         collect(level, ItemType.CHICKEN);
@@ -411,9 +577,9 @@ class RoomTest {
         assertTrue(retry.isRemoved());
     }
 
-    @Test void burnedChickenApproachAndSwitchChainsAreRestoredOnEveryCollectionTrip() {
+    @Test void burnedChickenApproachAndSwitchChainsAreRestoredOnEveryCollectionTrip() throws Exception {
         Level level = forest();
-        // Exercise a future authored chain on the shipped Chicken route, without exempting it.
+        // Exercise a linked chain beside the shipped Chicken route, without exempting any state.
         var platform = new com.jlogicsoftware.kimeria.tiled.TiledObject();
         platform.id = 2000; platform.type = "FallingPlatform";
         platform.x = 416; platform.y = 256; platform.width = 32; platform.height = 16;
@@ -433,30 +599,140 @@ class RoomTest {
         lift.properties.put("offPos", "2");
         level.map.layer("SpawnPoints").add(lift);
         level.resetCurrentRoom(player());
+        var initialFalling = level.fallingPlatforms.get(0);
+        assertEquals(256, initialFalling.getY());
+        assertNotNull(artifact(level, ItemType.CHICKEN));
+        var initialDoor = level.objects.stream().filter(com.jlogicsoftware.kimeria.entity.items.Wall.class::isInstance)
+            .map(com.jlogicsoftware.kimeria.entity.items.Wall.class::cast).findFirst().orElseThrow();
+        var initialLift = level.escalators.get(0);
+        assertTrue(initialDoor.isActive());
+        assertEquals(com.jlogicsoftware.kimeria.entity.objects.Escalator.State.RUN, initialLift.getState());
+        initialLift.update(1.5f);
+        initialLift.update(.01f);
+        assertEquals(-1, initialLift.snapshot().direction());
+        assertTrue(initialLift.snapshot().facingRight());
+        float savedLiftX = initialLift.getX();
+        level.activateTrigger(level.triggers.stream().filter(t -> t.targetId.equals("approach")).findFirst().orElseThrow());
+        assertTrue(initialDoor.isRemoved());
+        assertEquals(com.jlogicsoftware.kimeria.entity.objects.Escalator.State.IDLE, initialLift.getState());
+        var expectedLiftSnapshot = initialLift.snapshot();
+        initialFalling.collideWithActor(); initialFalling.update(2); initialFalling.update(2);
+        assertTrue(initialFalling.isRemoved());
+        collect(level, ItemType.COIN);
+        level.enterNextRoom(player()); collect(level, ItemType.COIN);
+        level.prepareHealer(); level.returnForCollection(player());
+        assertTrue(roomOwner(level, 2002).isRemoved());
+        assertFalse(level.collisionBlocks.contains(roomOwner(level, 2002)), "The removed wall must not block collision");
+        assertTrue(roomOwner(level, 2000).isRemoved(), "A spent one-shot platform remains spent after collection return");
+        assertFalse(level.fallingPlatforms.contains(roomOwner(level, 2000)), "Removed platform is pruned from live lists");
+        var restoredLift = level.escalators.get(0);
+        assertEquals(com.jlogicsoftware.kimeria.entity.objects.Escalator.State.IDLE, restoredLift.getState());
+        assertEquals(savedLiftX, restoredLift.getX());
+        assertEquals(expectedLiftSnapshot, restoredLift.snapshot(), "Direction, activity, facing, and animation time survive return");
+
+        var expectedLiftState = com.jlogicsoftware.kimeria.entity.objects.Escalator.State.IDLE;
         for (int trip = 0; trip < 3; trip++) {
-            var falling = level.fallingPlatforms.get(0);
-            assertEquals(256, falling.getY());
-            assertFalse(falling.isRemoved());
-            assertNotNull(artifact(level, ItemType.CHICKEN));
-            var door = level.objects.stream().filter(com.jlogicsoftware.kimeria.entity.items.Wall.class::isInstance)
-                .map(com.jlogicsoftware.kimeria.entity.items.Wall.class::cast).findFirst().orElseThrow();
-            assertTrue(door.isActive());
-            assertEquals(com.jlogicsoftware.kimeria.entity.objects.Escalator.State.RUN, level.escalators.get(0).getState());
-            assertEquals(440, level.escalators.get(0).getX());
-            level.escalators.get(0).update(.25f);
-            level.activateTrigger(level.triggers.stream().filter(t -> t.targetId.equals("approach")).findFirst().orElseThrow());
-            assertTrue(door.isRemoved());
-            assertEquals(com.jlogicsoftware.kimeria.entity.objects.Escalator.State.IDLE, level.escalators.get(0).getState());
-            falling.collideWithActor(); falling.update(2); falling.update(2);
-            assertTrue(falling.isRemoved());
+            var approachTrigger = level.triggers.stream().filter(t -> t.targetId.equals("approach")).findFirst().orElseThrow();
+            assertEquals("approach", restoredLift.getTargetId());
+            var beforeToggle = restoredLift.getState();
+            level.activateTrigger(approachTrigger);
+            assertNotEquals(beforeToggle, restoredLift.getState(), "The restored trigger must still toggle its linked lift");
+            expectedLiftState = restoredLift.getState();
+            restoredLift.update(.2f);
+            savedLiftX = restoredLift.getX();
+            expectedLiftSnapshot = restoredLift.snapshot();
+            level.enterNextRoom(player());
             collect(level, ItemType.COIN);
-            level.enterNextRoom(player()); collect(level, ItemType.COIN);
-            level.prepareHealer(); level.returnForCollection(player());
-            assertNotSame(falling, level.fallingPlatforms.get(0));
+            level.prepareHealer();
+            level.returnForCollection(player());
+            restoredLift = level.escalators.get(0);
+            assertTrue(roomOwner(level, 2002).isRemoved());
+            assertTrue(roomOwner(level, 2000).isRemoved());
+            assertFalse(level.fallingPlatforms.contains(roomOwner(level, 2000)));
+            assertEquals(expectedLiftState, restoredLift.getState());
+            assertEquals(savedLiftX, restoredLift.getX());
+            assertEquals(expectedLiftSnapshot, restoredLift.snapshot(), "The latest bounded room snapshot wins after each trip");
             assertEquals(6, level.forestCoinsSecured());
         }
         assertEquals(6, coins.get());
         assertTrue(artifacts.items().isEmpty());
+    }
+
+    @Test void collapsedOneShotPlatformRemainsCollapsedOnCollectionReturnAndDeath() throws Exception {
+        Level level = forest();
+        var platformObject = new com.jlogicsoftware.kimeria.tiled.TiledObject();
+        platformObject.id = 2010; platformObject.type = "FallingPlatform";
+        platformObject.x = 416; platformObject.y = 256; platformObject.width = 32; platformObject.height = 16;
+        level.map.layer("SpawnPoints").add(platformObject);
+        level.resetCurrentRoom(player());
+        var first = (com.jlogicsoftware.kimeria.entity.objects.FallingPlatform) roomOwner(level, 2010);
+        first.collideWithActor(); first.update(8f); first.update(2f);
+        assertTrue(first.isRemoved());
+
+        level.enterNextRoom(player());
+        level.prepareHealer();
+        level.returnForCollection(player());
+        var afterReturn = (com.jlogicsoftware.kimeria.entity.objects.FallingPlatform) roomOwner(level, 2010);
+        assertNotSame(first, afterReturn);
+        assertTrue(afterReturn.isRemoved());
+        assertTrue(level.fallingPlatforms.isEmpty());
+        afterReturn.collideWithActor(); // A removed platform cannot be rearmed by contact.
+        assertTrue(afterReturn.isRemoved());
+
+        level.resetCurrentRoom(player());
+        var afterDeath = (com.jlogicsoftware.kimeria.entity.objects.FallingPlatform) roomOwner(level, 2010);
+        assertNotSame(afterReturn, afterDeath);
+        assertTrue(afterDeath.isRemoved(), "Death restores the latest secured collapsed snapshot");
+        assertFalse(level.fallingPlatforms.contains(afterDeath));
+    }
+
+    @Test void fallingPlatformWarningSnapshotResumesFreshAndFreezesWhileInactive() throws Exception {
+        Level level = forest();
+        var platformObject = new com.jlogicsoftware.kimeria.tiled.TiledObject();
+        platformObject.id = 2011; platformObject.type = "FallingPlatform";
+        platformObject.x = 416; platformObject.y = 256; platformObject.width = 32; platformObject.height = 16;
+        level.map.layer("SpawnPoints").add(platformObject);
+        level.resetCurrentRoom(player());
+        var first = (com.jlogicsoftware.kimeria.entity.objects.FallingPlatform) roomOwner(level, 2011);
+        first.collideWithActor();
+        first.update(.2f);
+        var securedWarning = first.snapshot();
+        level.enterNextRoom(player());
+        for (int frame = 0; frame < 90; frame++) level.update(1f / 60f);
+        assertEquals(securedWarning, first.snapshot(), "Inactive room objects do not advance");
+
+        level.prepareHealer();
+        level.returnForCollection(player());
+        var warningResume = (com.jlogicsoftware.kimeria.entity.objects.FallingPlatform) roomOwner(level, 2011);
+        assertNotSame(first, warningResume);
+        assertEquals(securedWarning, warningResume.snapshot());
+        level.update(.01f); // Flush the freshly reconstructed transient light into the live object list.
+        assertTrue(level.objects.stream().anyMatch(o -> o instanceof Torch torch && !torch.isRemoved()
+                && Math.abs(torch.getX() - 416) < .01f),
+            "A restored warning gets a fresh transient light");
+
+        warningResume.update(securedWarning.warningSeconds());
+        warningResume.update(.4f);
+        var midFall = warningResume.snapshot();
+        assertTrue(midFall.fallSeconds() > 0f);
+        level.enterNextRoom(player()); // Secures the mid-fall state.
+        level.returnForCollection(player());
+        var midFallResume = (com.jlogicsoftware.kimeria.entity.objects.FallingPlatform) roomOwner(level, 2011);
+        assertEquals(midFall, midFallResume.snapshot(), "Mid-fall progress resumes without old torch state");
+        assertFalse(level.objects.stream().anyMatch(o -> o instanceof Torch torch && !torch.isRemoved()
+                && Math.abs(torch.getX() - 416) < .01f),
+            "A mid-fall restore does not recreate an obsolete warning light");
+        level.resetCurrentRoom(player());
+        var afterDeath = (com.jlogicsoftware.kimeria.entity.objects.FallingPlatform) roomOwner(level, 2011);
+        assertEquals(midFall, afterDeath.snapshot(), "Death rolls back to the latest secured mid-fall baseline");
+
+        for (int frame = 0; frame < 180 && !afterDeath.isRemoved(); frame++) afterDeath.update(1f / 60f);
+        assertTrue(afterDeath.isRemoved());
+        level.enterNextRoom(player());
+        level.returnForCollection(player());
+        var removedResume = (com.jlogicsoftware.kimeria.entity.objects.FallingPlatform) roomOwner(level, 2011);
+        assertTrue(removedResume.isRemoved());
+        assertFalse(level.fallingPlatforms.contains(removedResume), "Removed owner is pruned after restore");
     }
 
     @Test void anEmptyAuthoredCoinSetNeverAutomaticallyQualifiesForTheElixir() {

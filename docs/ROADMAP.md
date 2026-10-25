@@ -177,7 +177,8 @@ next experiment. Four stage names/icons alone do not complete the mechanics MVP.
 ### 2.2. First coherent level and external validation
 
 - [ ] [#128](https://github.com/jlogicgames/edgard_in_kimeria/issues/128) Build a complete level of roughly five rooms: introduce a rule,
-  develop it, combine it with dangers and offer an optional route.
+  develop it, combine it with dangers and offer an optional route. Author and replay-test
+  changed-world consequences under the [D26 contract](ROOMS.md#puzzle-platformer-authoring-contract-d26).
 - [ ] [#129](https://github.com/jlogicgames/edgard_in_kimeria/issues/129) Run first external playtests after the mechanics MVP, without waiting
   for all 100 hypothetical rooms. Let new players play without explaining solutions.
 - [ ] [#130](https://github.com/jlogicgames/edgard_in_kimeria/issues/130) Measure roughly 20-second mastered traversal and 60-second first learning

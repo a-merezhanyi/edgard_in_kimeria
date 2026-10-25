@@ -27,6 +27,7 @@ public class FallingPlatform extends Actor<FallingPlatform.State> implements Col
     private float fallVelocity = 0f;
     private static final float FALL_DISTANCE = 200f;
     private static final float FALL_DURATION = 1.5f;
+    private static final int WARNING_TORCH_INTENSITY = 5;
 
     public FallingPlatform(Assets assets, float x, float y, float w, float h, Consumer<WorldObject> spawner,
                            TrapWarnings warnings) {
@@ -44,6 +45,32 @@ public class FallingPlatform extends Actor<FallingPlatform.State> implements Col
 
     public boolean isFalling() {
         return falling;
+    }
+
+    public record Snapshot(float x, float y, boolean falling, float warningSeconds,
+                           float fallSeconds, boolean facingRight, float animationTime,
+                           boolean removed) { }
+
+    public Snapshot snapshot() {
+        return new Snapshot(position.x, position.y, falling, fallDelay, fallVelocity,
+            facingRight, animationTime(), removed);
+    }
+
+    /** Restores platform progress and reconstructs only a live warning light. */
+    public void restore(Snapshot snapshot) {
+        removeWarningTorch();
+        position.set(snapshot.x(), snapshot.y());
+        falling = snapshot.falling();
+        fallDelay = snapshot.warningSeconds();
+        fallVelocity = snapshot.fallSeconds();
+        facingRight = snapshot.facingRight();
+        setState(falling ? State.FALLING : State.IDLE);
+        restoreAnimationTime(snapshot.animationTime());
+        removed = snapshot.removed();
+        if (!removed && falling && fallDelay > 0f) {
+            torch = new Torch(centerX(), centerY(), size.x, size.y, WARNING_TORCH_INTENSITY, "");
+            spawner.accept(torch);
+        }
     }
 
     @Override
@@ -66,7 +93,7 @@ public class FallingPlatform extends Actor<FallingPlatform.State> implements Col
     private void triggerFall() {
         falling = true;
         setState(State.FALLING);
-        torch = new Torch(centerX(), centerY(), size.x, size.y, 5, "");
+        torch = new Torch(centerX(), centerY(), size.x, size.y, WARNING_TORCH_INTENSITY, "");
         spawner.accept(torch);
         fallDelay = warnings.duration(TrapWarnings.FALLING_PLATFORM_SECONDS);
     }
@@ -77,7 +104,7 @@ public class FallingPlatform extends Actor<FallingPlatform.State> implements Col
         if (fallDelay > 0) {
             fallDelay -= dt;
             if (fallDelay <= 0) {
-                torch.toggleFire(false);
+                if (torch != null) torch.toggleFire(false);
                 fallVelocity = 0.0001f; // marks "now actually falling"
             }
         } else if (fallVelocity > 0) {
@@ -85,12 +112,18 @@ public class FallingPlatform extends Actor<FallingPlatform.State> implements Col
             position.y += (FALL_DISTANCE / FALL_DURATION) * dt;
             if (fallVelocity >= FALL_DURATION) {
                 removeFromParent();
-                torch.removeFromParent();
+                removeWarningTorch();
             }
         }
         if (torch != null) {
             torch.update(dt);
         }
+    }
+
+    private void removeWarningTorch() {
+        if (torch == null) return;
+        torch.removeFromParent();
+        torch = null;
     }
 
     @Override

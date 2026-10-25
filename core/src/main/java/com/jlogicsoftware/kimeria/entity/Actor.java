@@ -49,6 +49,10 @@ public abstract class Actor<S extends Enum<S>> extends Entity {
         return current;
     }
 
+    public float animationTime() { return stateTime; }
+
+    public void restoreAnimationTime(float time) { stateTime = Math.max(0f, time); }
+
     protected void tickAnimation(float dt) {
         stateTime += dt;
     }

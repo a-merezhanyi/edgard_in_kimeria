@@ -52,6 +52,8 @@ import java.util.function.Supplier;
  * and render passes for the whole scene.
  */
 public class Level implements WorldObject {
+    private static final float CARRYABLE_SUPPORT_OVERLAP = 0.1f;
+    private static final float CARRYABLE_SEARCH_STEP = 1f;
     public final String name;
     public final TiledMapData map;
     public Player player;
@@ -89,12 +91,24 @@ public class Level implements WorldObject {
         return name.equals("forest") && currentRoom == 0;
     }
     private final List<WorldObject> ambience = new ArrayList<>();
-    /** One bounded entry per visited room: traversal objects are deliberately not retained. */
+    private sealed interface ObjectSnapshot permits CarryableState, TorchState, WallState,
+        EscalatorState, FallingPlatformState { }
+    private record CarryableState(Carryable.Snapshot value) implements ObjectSnapshot { }
+    private record TorchState(float x, float y, int intensity, boolean burning,
+                              boolean removed) implements ObjectSnapshot { }
+    private record WallState(boolean active, boolean removed) implements ObjectSnapshot { }
+    private record EscalatorState(Escalator.Snapshot value) implements ObjectSnapshot { }
+    private record FallingPlatformState(FallingPlatform.Snapshot value) implements ObjectSnapshot { }
+
+    /** One bounded secured entry per room, including immutable snapshots of mutable world owners. */
     private record Visit(Map<Integer, Enemy<?>> enemies, Set<Integer> defeated,
-                         Map<Integer, Bomb.Snapshot> traps) { }
+                         Map<Integer, Bomb.Snapshot> traps,
+                         Map<Integer, ObjectSnapshot> objects) { }
     private final Map<Integer, Visit> visits = new HashMap<>();
     private final Map<Integer, Enemy<?>> roomEnemies = new HashMap<>();
     private final Map<Integer, Bomb> roomTraps = new HashMap<>();
+    /** Current-room owner registry retains identity even after an owner leaves a live list. */
+    private final Map<Integer, WorldObject> roomStateOwners = new HashMap<>();
     private boolean revisiting, fightCommitted, brewed, healerMet;
     private final Set<Integer> authoredCoins = new HashSet<>();
     private final int entryCoins;
@@ -157,6 +171,78 @@ public class Level implements WorldObject {
     }
 
     public Rectangle currentRoomBounds() { return roomLayout.rooms.get(currentRoom).bounds(); }
+    public String currentRoomName() { return roomLayout.rooms.get(currentRoom).id(); }
+
+    /** Finds the nearest clear, supported location for a room-owned carryable. */
+    public Rectangle findSafeCarryablePlacement(float carryableSize) {
+        Rectangle room = currentRoomBounds();
+        Vector2 entrance = roomLayout.rooms.get(currentRoom).entrance();
+        float standingY = entrance.y + player.size.y;
+        Rectangle best = null;
+        float bestVerticalDistance = Float.POSITIVE_INFINITY;
+        float bestHorizontalDistance = Float.POSITIVE_INFINITY;
+        for (var block : collisionBlocks) {
+            if (!block.isActive() || block.isQuickSand()) continue;
+            Rectangle candidate = supportedCandidate(entrance.x, standingY, room, carryableSize,
+                block.getX(), block.getY(), block.getWidth());
+            if (candidate != null) {
+                float verticalDistance = Math.abs(candidate.y + carryableSize - standingY);
+                float horizontalDistance = Math.abs(candidate.x - entrance.x);
+                if (verticalDistance < bestVerticalDistance
+                    || (verticalDistance == bestVerticalDistance && horizontalDistance < bestHorizontalDistance)) {
+                    best = candidate;
+                    bestVerticalDistance = verticalDistance;
+                    bestHorizontalDistance = horizontalDistance;
+                }
+            }
+        }
+        return best;
+    }
+
+    private Rectangle supportedCandidate(float anchorX, float standingY, Rectangle room,
+                                         float carryableSize, float supportX, float supportY,
+                                         float supportWidth) {
+        float minimumX = Math.max(room.x, supportX + CARRYABLE_SUPPORT_OVERLAP);
+        float maximumX = Math.min(room.x + room.width - carryableSize,
+            supportX + supportWidth - carryableSize - CARRYABLE_SUPPORT_OVERLAP);
+        minimumX = Math.max(minimumX, anchorX - player.size.x);
+        maximumX = Math.min(maximumX, anchorX + player.size.x);
+        if (minimumX > maximumX) return null;
+        float candidateY = supportY - carryableSize;
+        if (Math.abs(supportY - standingY) > player.size.y) return null;
+        float nearestX = Math.max(minimumX, Math.min(maximumX, anchorX));
+        int steps = (int) Math.ceil((maximumX - minimumX) / CARRYABLE_SEARCH_STEP);
+        for (int step = 0; step <= steps; step++) {
+            float offset = step * CARRYABLE_SEARCH_STEP;
+            Rectangle right = candidateAt(nearestX + offset, candidateY, carryableSize, room,
+                minimumX, maximumX);
+            if (right != null) return right;
+            if (step > 0) {
+                Rectangle left = candidateAt(nearestX - offset, candidateY, carryableSize, room,
+                    minimumX, maximumX);
+                if (left != null) return left;
+            }
+        }
+        return null;
+    }
+
+    private Rectangle candidateAt(float x, float y, float carryableSize, Rectangle room,
+                                  float minimumX, float maximumX) {
+        if (x < minimumX || x > maximumX) return null;
+        Rectangle candidate = new Rectangle(x, y, carryableSize, carryableSize);
+        if (x < room.x || x > room.x + room.width - carryableSize
+            || !room.contains(candidate) || blocksObject(candidate, true) || overlapsQuickSand(candidate)) return null;
+        return candidate;
+    }
+
+    private boolean overlapsQuickSand(Rectangle bounds) {
+        for (var block : collisionBlocks) {
+            if (!block.isActive() || !block.isQuickSand()) continue;
+            if (bounds.overlaps(new Rectangle(block.getX(), block.getY(), block.getWidth(), block.getHeight())))
+                return true;
+        }
+        return false;
+    }
     public boolean atRoomExit() {
         Rectangle exit = roomLayout.rooms.get(currentRoom).exit();
         return !victory && exit != null && player.canLeaveRoom() && exit.overlaps(player.hitboxBounds());
@@ -206,12 +292,13 @@ public class Level implements WorldObject {
         objects.clear(); collisionBlocks.clear(); escalators.clear(); triggers.clear(); fallingPlatforms.clear();
         pendingSpawns.clear(); pendingPickups.clear();
         boss = null;
-        roomEnemies.clear(); roomTraps.clear();
+        roomEnemies.clear(); roomTraps.clear(); roomStateOwners.clear();
         victory = completionSent = false;
         clearCameraEffects();
         player = nextPlayer;
         spawnObjects();
         addCollisions();
+        restoreRoomObjects();
         placePlayer();
         if (boss != null && retryBossEnergy >= 0) boss.showRestoration(retryBossEnergy);
         retryBossEnergy = -1;
@@ -329,13 +416,65 @@ public class Level implements WorldObject {
     }
 
     private void secureVisit() {
+        player.releaseCarriedForRoomSecure();
         Set<Integer> defeated = new HashSet<>();
         Visit previous = visits.get(currentRoom);
         if (previous != null) defeated.addAll(previous.defeated());
         roomEnemies.forEach((id, enemy) -> { if (enemy.isDefeated()) defeated.add(id); });
         Map<Integer, Bomb.Snapshot> traps = new HashMap<>();
         roomTraps.forEach((id, bomb) -> traps.put(id, bomb.snapshot()));
-        visits.put(currentRoom, new Visit(Map.copyOf(roomEnemies), Set.copyOf(defeated), Map.copyOf(traps)));
+        Map<Integer, ObjectSnapshot> objectSnapshots = new HashMap<>();
+        roomStateOwners.forEach((id, owner) -> {
+            ObjectSnapshot snapshot = snapshotRoomObject(owner);
+            if (snapshot != null) objectSnapshots.put(id, snapshot);
+        });
+        visits.put(currentRoom, new Visit(Map.copyOf(roomEnemies), Set.copyOf(defeated),
+            Map.copyOf(traps), Map.copyOf(objectSnapshots)));
+    }
+
+    private ObjectSnapshot snapshotRoomObject(WorldObject owner) {
+        if (owner instanceof Carryable carryable) return new CarryableState(carryable.snapshot());
+        if (owner instanceof Torch torch) return new TorchState(torch.getX(), torch.getY(),
+            torch.intensity(), torch.isBurning(), torch.isRemoved());
+        if (owner instanceof Wall wall) return new WallState(wall.isActive(), wall.isRemoved());
+        if (owner instanceof Escalator escalator) return new EscalatorState(escalator.snapshot());
+        if (owner instanceof FallingPlatform platform) return new FallingPlatformState(platform.snapshot());
+        return null;
+    }
+
+    private void restoreRoomObjects() {
+        Visit saved = visits.get(currentRoom);
+        if (saved == null) return;
+        saved.objects().forEach((id, snapshot) -> {
+            WorldObject owner = roomStateOwners.get(id);
+            if (owner == null) return;
+            if (owner instanceof Carryable carryable && snapshot instanceof CarryableState state) {
+                carryable.restore(state.value());
+            } else if (owner instanceof Torch torch && snapshot instanceof TorchState state) {
+                torch.position.set(state.x(), state.y());
+                torch.restoreState(state.intensity(), state.burning());
+                if (state.removed()) torch.removeFromParent();
+            } else if (owner instanceof Wall wall && snapshot instanceof WallState state) {
+                wall.restoreState(state.active(), state.removed());
+            } else if (owner instanceof Escalator escalator && snapshot instanceof EscalatorState state) {
+                escalator.restore(state.value());
+            } else if (owner instanceof FallingPlatform platform && snapshot instanceof FallingPlatformState state) {
+                platform.restore(state.value());
+            }
+        });
+        roomStateOwners.forEach((id, owner) -> {
+            if (owner.isRemoved()) {
+                objects.remove(owner);
+                escalators.remove(owner);
+                fallingPlatforms.remove(owner);
+                collisionBlocks.remove(owner);
+            }
+        });
+    }
+
+    private void registerRoomStateOwner(int id, WorldObject owner) {
+        if (roomStateOwners.put(id, owner) != null)
+            throw new IllegalArgumentException("Duplicate mutable room-state object ID: " + id);
     }
 
     private boolean restoreRetainedObject(TiledObject o) {
@@ -405,10 +544,16 @@ public class Level implements WorldObject {
                 }
                 case "Torch" -> {
                     int intensity = (int) o.propFloat("Intensity", 80);
-                    objects.add(new Torch(assets, o.x + o.width / 2f, o.y + o.height / 2f, o.width, o.height, intensity, ""));
+                    Torch torch = new Torch(assets, o.x + o.width / 2f, o.y + o.height / 2f, o.width, o.height, intensity, "");
+                    objects.add(torch);
+                    registerRoomStateOwner(o.id, torch);
                 }
-                case "Stone", "CarryableTorch" -> objects.add(new Carryable(this, o.id,
-                    "Stone".equals(o.type) ? Carryable.Kind.STONE : Carryable.Kind.TORCH, o.x, o.y));
+                case "Stone", "CarryableTorch" -> {
+                    Carryable carryable = new Carryable(this, o.id,
+                        "Stone".equals(o.type) ? Carryable.Kind.STONE : Carryable.Kind.TORCH, o.x, o.y);
+                    objects.add(carryable);
+                    registerRoomStateOwner(o.id, carryable);
+                }
                 case "Trigger" -> {
                     Trigger trigger = new Trigger(o.id, o.x, o.y, o.width, o.height, o.name);
                     objects.add(trigger);
@@ -419,10 +564,12 @@ public class Level implements WorldObject {
                     Escalator escalator = new Escalator(assets, o.x, o.y, o.width, o.height,
                         o.propBool("isVertical", false), o.propFloat("offNeg", 0), o.propFloat("offPos", 0), o.name);
                     escalators.add(escalator);
+                    registerRoomStateOwner(o.id, escalator);
                 }
                 case "FallingPlatform" -> {
                     FallingPlatform platform = new FallingPlatform(assets, o.x, o.y, o.width, o.height, this::queueSpawn, game.trapWarnings());
                     fallingPlatforms.add(platform);
+                    registerRoomStateOwner(o.id, platform);
                 }
                 default -> {
                 }
@@ -458,11 +605,13 @@ public class Level implements WorldObject {
             int intensity = (int) o.propFloat("Intensity", 0);
             Torch torch = new Torch(assets, o.x + o.width / 2f, o.y + o.height / 2f, o.width, o.height, intensity, targetId);
             objects.add(torch);
+            registerRoomStateOwner(o.id, torch);
             if (intensity == 0) torch.toggleFire(false);
         } else if ("Wall".equals(type)) {
             Wall wall = new Wall(o.x, o.y, o.width, o.height, targetId);
             objects.add(wall);
             collisionBlocks.add(wall);
+            registerRoomStateOwner(o.id, wall);
         }
     }
 

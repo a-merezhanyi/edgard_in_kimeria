@@ -121,27 +121,46 @@ Rooms are then traversed forward again. No free backward-room navigation is adde
 | Secured defeated enemies | Remain absent, even if their death animation had not finished | Remain absent |
 | Surviving enemies | Resume retained position, direction, animation/AI and velocity with the new hero reference | Rebuilt at authored spawn/AI state; defeats from this attempt roll back |
 | Bomb traps | Resume secured idle/warning/exploded state; warnings do not advance off-room | Restore the last secured trap snapshot; first-visit traps start idle |
-| Moving platforms | Recreated at authored position, direction and active state | Recreated |
-| Falling / vanished platforms | Recreated idle at authored position, with warning rearmed | Recreated |
-| Switches/triggers | Recreated; links remain operable | Recreated |
-| Linked doors, actionable walls, switched torches | Restore authored state together with switches | Recreated |
+| Moving platforms | Resume secured position, direction, animation and active state | Restore the latest secured state; first visit starts authored |
+| One-shot falling / vanished platforms | Resume the latest secured position, phase, timers and removed state; warning light is reconstructed | Restore the latest secured snapshot; first visits begin authored |
+| Triggers and levers | Recreated; each lever derives its display and action from its linked torch | Recreated |
+| Portable tools, fixed torches, linked doors and actionable walls | Resume their latest secured logical/physics state | Restore the latest secured state; first visit starts authored |
 | Static collision terrain and one-way platforms | Rebuilt from the authored descriptions | Rebuilt |
 | Pickup ripples, old explosions, platform warning particles | Discarded; never replayed from a previous visit | Discarded |
 
-Platforms take the explicit restoration rule even when their fall/warning is a hazard.
-Bombs take the trap-retention rule. Enemy references to old moving supports are cleared
-before resumed physics binds them to the rebuilt traversal graph. One retained entry per
-room replaces the prior entry on each secured exit; trips do not append room snapshots.
+Falling platforms use the same one-snapshot-per-room rule as other mutable owners. A
+collapsed platform 115 can make optional Key 95 unreachable until Restart Level; this is
+an accepted consequence of preserving the level as played. The mandatory canopy exit and
+boss route must stay passable even when that optional route support is spent. Death restores
+the latest secured platform state; first visits begin from authored state. A warning-phase
+restore creates a fresh transient torch and never replays old particles. Other mutable room
+owners also use one secured snapshot per room; each new secure replaces that entry. Removed
+owners remain in the identity registry until capture, then are pruned from every live list
+after restore. Inactive rooms do not update. Rebuilt levers derive their state from the
+restored torch, and enemy support references are rebound to the new traversal graph.
 
-The shipped forest has static stair platforms, ordinary terrain/quicksand, bombs and
-unlinked decorative torches; it currently has no authored moving/falling platform or
-switch chain. Those objects are still covered by the restoration path and regression
-fixtures. The `forest-1` wall trigger remains operable; escalator trigger targets use
-the authored object name, so restored chains can toggle moving platforms too. No awkward
-traversal object is excluded from rebuilding. No map geometry or existing author art was
-replaced for this feature.
+A held carryable is released onto clear static collision support near its owning room's
+authored entrance before securing. This removes the old hero reference while keeping the
+tool available in that room after a transition.
+
+The shipped forest has falling platform 115 at x=1568, y=256 and Key 95 at x=1728, y=208.
+The real-input replay intentionally misses Key 95, collapses 115, returns from the healer,
+and confirms the mandatory canopy exit remains reachable while the Key stays uncollected.
+A fresh Level restores the authored platform and the existing full-artifact route can then
+collect the Key. Synthetic fixtures separately cover linked walls, escalators, falling
+platform phases and shared target names; the `forest-1` wall trigger remains operable. No
+map geometry or author art is changed for this feature.
+
+Because a one-shot support can permanently close an optional pickup route until reset, its
+warning and intended consequence must be clearly telegraphed during manual acceptance.
+This ticket does not add a new UI or dialogue system; any additional teaching is separate
+work.
 
 ## Local validation, 2026-10-16
+
+The platform-rearm assertions in this dated room-state test record predate the accepted
+D26 contract and are superseded for current design by D26/#158. Other results below remain
+historical evidence only for the behavior and test version described at that date.
 
 120 core tests pass. New regressions cover missing Chicken/Key/coins, combined refusal,
 prior-level currency, empty authored coin sets, payment exactly once, separate completion
@@ -170,6 +189,32 @@ and Ukrainian. The full text of every dialogue line fits its actual baked font a
 framebuffer images were visually inspected. About with controller instructions also fits
 both handedness layouts in both languages (312-pixel content panel at 640x360). The harness is not part of the shipped game.
 Only local checks were used, per the author's choice; no source was sent to Snyk.
+
+## Room-state retention validation, 2026-10-24 (#158)
+
+### Earlier validation, superseded platform policy
+
+The first set of #158 checks used a platform-rearm rule that was later replaced by the
+accepted “optional key may be missed until Reset Level” policy. Its 212-core-test, named
+parameter, sprite-art, localization, desktop/web build results and browser handoff smoke
+are historical evidence for that earlier revision, not validation of the final platform
+snapshot behavior. The browser smoke did verify held-tool handoff with debug room skips and
+F2 invulnerability; it did not exercise a full unassisted route. The separate 2026-10-16
+results above predate #158 and remain historical as well.
+
+### Final platform-preservation policy
+
+The focused `RoomTest`, `RoomReplayTest` and `ArtifactInventoryTest` run passed **42 tests**.
+It covers latest secured falling-platform warning and mid-fall snapshots, inactive-room
+freeze, fresh transient warning-light reconstruction, removed-owner pruning and death
+rollback. The real-input forest replay intentionally misses Key 95, collapses platform 115,
+returns from the healer, and reaches the mandatory canopy exit while confirming the Key
+remains uncollected. It does not try to collect the inaccessible optional Key. A fresh
+Level restores the authored platform and the existing artifact route collects the Key.
+The full suite passed **213 core tests**, with zero failures or skips. The named-parameter,
+sprite-art, five-language localization, `:core:check`, desktop JAR and TeaVM release-build
+checks also passed. These are automated route/build checks, not a desktop/web human
+playthrough. Manual fair-warning acceptance remains open.
 
 ### Speaker-region layout audit, 2026-10-24 (#156)
 

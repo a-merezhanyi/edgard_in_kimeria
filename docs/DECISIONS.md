@@ -50,14 +50,19 @@ verification of subsequent implementation changes still apply.
     including combat, waiting, and slow motion, from usable entrance input to the
     exit contact; exclude loading, pauses, fades, and death/exit presentation.
     Reference routes and results are recorded in [ROOMS.md](ROOMS.md) (#70).
-  - On death the **current room** resets the player, surviving enemies and traversal objects;
-    new provisional pickups roll back. On its first visit, traps also return to their initial
-    state. On a collection revisit, secured pickups and killed enemies stay absent, and traps
-    return to the state secured on the previous exit. The player respawns at the room entrance.
+  - On death the **current room** resets the player and surviving enemies to authored
+    spawn/AI state, and mutable room owners to their latest secured snapshot; new
+    provisional pickups roll back. On its first visit, the authored map is the baseline.
+    On a collection revisit, secured pickups and
+    killed enemies stay absent, and traps return to the state secured on the previous exit.
+    Falling platforms restore the latest secured snapshot like other mutable room owners.
+    A spent support may make optional Key 95 unreachable until Restart Level; mandatory
+    exits and boss routes must remain passable. The player respawns at the room entrance.
     The complete first-visit/revisit policy is in [HEALER.md](HEALER.md).
   - **Rooms already passed keep progression** for the rest of the level: killed enemies stay
     dead and collected pickups stay collected. The optional healer collection return (D6)
-    preserves enemy/trap state but restores traversal platforms, switches and linked doors.
+    preserves enemy/trap state and mutable room-owner snapshots, including one-shot
+    falling platforms. An optional item may be missed until Restart Level.
     It is distinct from a same-room death reset. See [HEALER.md](HEALER.md).
   - Death plays in slow motion, as in Katana Zero (about 0.7 s of real time at a fifth of
     normal speed), so the player sees what killed them and does not walk into it twice. Only
@@ -120,7 +125,9 @@ only in the menu backdrop.
     for `forest` is **Chicken + Key**; `forest-1` has no artifacts or full-set reward yet.
     The author accepted their existing map positions as final for the MVP on 2026-10-19
     (#72). Keep Chicken and Key in those positions; relocating them or adding harder
-    artifact side paths is not required or planned for this MVP.
+    artifact side paths is not required or planned for this MVP. Under [D26](#d26-observe-plan-before-committing),
+    a secured one-shot consequence may make an optional artifact route missable until
+    Restart Level, but it cannot block a mandatory exit or future tablet fragment.
   - The boss always starts at full normal energy. Merely holding Chicken and Key gives
     no bonus. The optional healer bargain consumes Chicken, Key and every forest coin;
     the hero immediately drinks the elixir, granting **10x physical sword damage to this boss**.
@@ -134,10 +141,12 @@ only in the menu backdrop.
   - Payment consumes Chicken, Key and every unique authored forest coin, never prior-level
     currency. Collection identities and completion remain recorded after spending. Brewing is
     once per encounter; an empty/undefined authored coin set cannot satisfy the recipe.
-  - At healer entry and collection return, secure the current room's pickups and enemy/trap
-    state. Collection return teleports to the first room; it is not Restart Level or free
-    backward traversal. Restore platforms, switches and dependent traversal chains each time
-    a visited room is re-entered; retain enemy/trap state and collected pickup identities.
+  - At healer entry and collection return, secure the current room's pickups, enemy/trap
+    state and mutable room-owner snapshots. Collection return teleports to the first room;
+    it is not Restart Level or free backward traversal. Restore each visited room's secured
+    objects and dependent chains when re-entered, including falling-platform progress.
+    An optional item may remain inaccessible until Restart Level; retain enemy/trap state
+    and collected pickup identities.
   - An artifact **counts once secured at room/level exit or healer entry/return**.
     Dying before that returns the new provisional pickup to its place (D3).
   - Pickups appear immediately in a single HUD row after the coin counter, in collection
@@ -158,7 +167,8 @@ only in the menu backdrop.
 - **Decision:** Bombs are the first of many planned traps. Each first-visit retry starts from the same
   trap state and warns before killing. On a healer revisit, retain the secured trap state,
   including a partially elapsed warning or prior explosion; death restores that secured
-  baseline (D3/D6). Falling platforms are restored traversal objects on collection return.
+  baseline (D3/D6). Falling platforms retain the same secured snapshots as other room
+  owners, including warning/fall progress and removal; transient warning lights are rebuilt.
   Every trap takes its warning time from one shared place, so the assist option for longer
   warnings (D11) applies to every trap, including new ones.
   Implementation rule: obtain `game.trapWarnings()` and call `duration(baseSeconds)` once
@@ -553,8 +563,9 @@ Authored checkpoints cannot bypass boss defeat or its victory walk. See [BOSS.md
 - **Scope:** Recipe ingredients, coins and fireball stock keep their separate
   existing inventory/resource rules; they do not consume this carryable slot.
   A HUD icon may mirror the held object without creating another slot. Current
-  room ownership, death/revisit reconstruction and release at forward room exit
-  remain unchanged. This decision adds no cross-room transport or save fields.
+  room ownership remains: secured tools resume on collection return, death rolls
+  back to the latest secured state, and a held tool is released onto safe support
+  before forward exit. This decision adds no cross-room transport or save fields.
 - **Implementation status:** One-slot input/state and visible front-hand carrying
   for both stone and torch are implemented (2026-10-23). Both use the player's
   foreground pass and animated palm attachment. A carried-item HUD icon is not
@@ -630,3 +641,47 @@ Authored checkpoints cannot bypass boss defeat or its victory walk. See [BOSS.md
 
   Author clarification: while standing at a pickup/activation target, wait 1 s
   before inspection so its directional interaction can be entered first.
+
+<a id="d26-observe-plan-before-committing"></a>
+
+## D26. Observe and plan before committing
+
+- **Status:** Accepted for the full campaign, 2026-10-24.
+- **Decision:** Edgard in Kimeria is a puzzle-platformer where the player should
+  first observe the room, infer how its obstacles and mechanisms work, then choose
+  when and how to act. One-shot supports, switched mechanisms, moved tools and
+  other secured world changes remain as played during the live Level. Their state
+  can change later searches for secrets and optional ingredients; this is an
+  intentional source of planning, consequence and replay variety.
+- **Authoring contract:** Mandatory exits, bosses and required future tablet
+  fragments must remain reachable without a forced Restart Level from every
+  reachable secured state produced by supported player actions, including after
+  one-way or mutable-object consequences. Optional secrets and ingredients may
+  become unavailable until Restart Level. Before an irreversible action, the
+  one-shot behavior and its meaningful consequence must be legible to an attentive
+  player. A hidden trap is not made fair by the presence of a reset button. Do not
+  clear or rearm objects merely to pass a route gate; author and verify routes under
+  the retained state.
+- **State boundary:** Forward room exits and healer entry/collection returns
+  secure the current room. Death restores the latest secured mutable-object state
+  on a revisit and authored state on the first visit. Restart Level rebuilds the
+  level from its authored state and restores level-entry inventory under existing
+  rules. Continue after closing the game still starts the saved level from its
+  beginning; this decision adds no object persistence to disk. Ordinary death and
+  room retries remain distinct from the optional full-level reset cost.
+- **Why:** A player who studies a space and chooses a risk should feel that choice
+  shape later exploration. Retaining a changed world supports richer puzzles and
+  more interesting searches, while clear signals and an unblocked mandatory route
+  keep consequence fair. The desired feel is “look around and think, then jump,”
+  not trial-and-error through hidden traps. A full Restart Level to recover a missed
+  optional reward is a deliberate cost of that choice, not the routine death-retry
+  loop or a substitute for the short replay targets.
+- **Scope:** This does not change death's secured rollback, Restart Level,
+  Continue/save boundaries, the 20-second mastered replay target or 60-second
+  first-learning hypothesis. It introduces no UI, controls, mechanics or geometry.
+- **Implementation status:** The design rule applies to the whole campaign.
+  Runtime retention is tracked in #158; acceptance for each campaign map is
+  verified separately.
+- **Details:** [Campaign design](GAME_DESIGN.md#observe-plan-and-commit-d26),
+  [room-authoring contract](ROOMS.md#puzzle-platformer-authoring-contract-d26),
+  [state boundaries](HEALER.md#state-policy), [#158](https://github.com/jlogicgames/edgard_in_kimeria/issues/158).
