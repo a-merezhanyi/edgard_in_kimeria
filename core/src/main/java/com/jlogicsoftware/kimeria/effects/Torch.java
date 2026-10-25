@@ -74,6 +74,17 @@ public class Torch extends Entity implements Actionable {
 
     public boolean isBurning() { return burning; }
 
+    public int intensity() { return intensity; }
+
+    /** Rebuild logical fire/light state without carrying transient particles between room visits. */
+    public void restoreState(int intensity, boolean burning) {
+        this.intensity = Math.max(0, intensity);
+        this.burning = burning;
+        computeLightBase();
+        particles.clear();
+        coreTimer = emberTimer = sparkleTimer = smokeTimer = flickerTimer = 0f;
+    }
+
     @Override
     public String getTargetId() {
         return targetId;

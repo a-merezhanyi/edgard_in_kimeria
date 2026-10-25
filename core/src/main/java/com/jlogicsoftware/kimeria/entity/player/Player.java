@@ -349,6 +349,17 @@ public class Player extends Actor<Player.State> implements CollideBody {
     public boolean canInteract() { return selectedMechanism() != null; }
     public Carryable carriedObject() { return carried; }
 
+    /** Releases the room-owned tool before a secured room snapshot is captured. */
+    public void releaseCarriedForRoomSecure() {
+        if (carried == null) return;
+        Rectangle destination = level.findSafeCarryablePlacement(Carryable.BODY_SIZE);
+        if (destination == null) {
+            throw new IllegalStateException("No supported carryable placement in room " + level.currentRoomName());
+        }
+        carried.release(destination.x, destination.y, false, facingRight);
+        carried = null;
+    }
+
     // Free/front palm, measured on the original 48x48 Player.png animation frames.
     private static final int[][] IDLE_GRIP = {{31, 34}, {31, 35}, {31, 34}, {31, 32}};
     private static final int[][] RUN_GRIP = {{29, 34}, {24, 33}, {32, 34}, {24, 33}};

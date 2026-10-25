@@ -110,9 +110,12 @@ The Forest boss absorbs thrown objects without damage. Fireballs damage it for e
 2 energy each, regardless of the elixir; only the sword receives the elixir's 10x bonus.
 Objects never injure the hero. Carrying does not change movement or jump behavior.
 
-Carryables belong to their authored room. They are rebuilt on retry and collection
-return, and are released with the old room at a forward transition; they are not
-persistent inventory. No old holder or projectile survives reconstruction.
+Carryables belong to their authored room. Their secured position and motion resume on
+collection return; room death rolls them back to the latest secured snapshot, and a fresh
+Level starts from authored positions. A held tool is released onto clear, stable collision
+terrain within one hero-width of the authored entrance before the room is secured. It stays
+with that room at a forward transition and is not persistent inventory. No old hero holder
+reference survives.
 Stock starts at three for a new/continued test run, is shared by both Forest levels,
 and is not refilled at each level. Death restores the active room's entry stock;
 forward entry secures remaining stock. Healer preparation/collection return secures
@@ -180,6 +183,10 @@ Keep only representative captures of the selected presentation:
 - Carrying reminder [before camera following](references/controls-carry-before-camera-scroll.png)
   and [after following starts](references/controls-carry-after-camera-scroll.png).
   A new pickup rearms it; mechanism teaching remains available after consumption.
+- Falling-platform warning is a one-shot route cue: once its spent state is secured,
+  it remains spent until Restart Level. An optional pickup may be missed, while the
+  mandatory exit route remains open. Manual acceptance should verify that this
+  consequence is telegraphed fairly; this state change adds no new control or UI.
 - Three-quarter lever [down/off](references/controls-lever-three-quarter-off.png)
   and [up/on](references/controls-lever-three-quarter-on.png), with local instructions
   and selection brackets. F2 invulnerability was used for presentation inspection.

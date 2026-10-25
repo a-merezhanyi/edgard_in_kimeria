@@ -10,7 +10,9 @@ source paths and commands below are relative to the repository root.
 
 ## Read the applicable rules
 
-Read [room lifecycle](../../../docs/ROOMS.md) and D3, D6 and D8 in
+Read the [campaign design principle](../../../docs/GAME_DESIGN.md#observe-plan-and-commit-d26)
+and [D26](../../../docs/DECISIONS.md#d26-observe-plan-before-committing) first. Then read
+[room lifecycle](../../../docs/ROOMS.md) and D3, D6, D8 and D26 in
 [design decisions](../../../docs/DECISIONS.md). For collection returns, payment or
 encounter locks, read the state-policy table in [healer](../../../docs/HEALER.md).
 These documents describe current defaults; an explicit requested design change
@@ -39,10 +41,17 @@ rather than inventing a universal reset method.
 Preserve these distinctions unless the request changes them:
 - Death discards provisional pickups and effects from this attempt. Secured
   collection identities and defeated enemies remain secured. Revisit deaths
-  restore secured trap snapshots; first-visit traps begin in their authored state.
+  restore secured trap and mutable room-owner snapshots; first visits begin in
+  authored state. Falling platforms also retain secured phase/timer/position/removal
+  state. An optional item may become unreachable after its one-shot support is spent;
+  from every reachable secured state produced by supported actions, mandatory exits,
+  bosses and required tablet fragments must remain reachable without a forced Restart
+  Level. The one-shot consequence must be readable before commitment.
 - Collection return secures the current visit idempotently. Retain secured
-  pickups, enemy progression and trap state; rebuild platforms, switches and
-  linked traversal objects together so the route remains usable. Retained enemies
+  pickups, enemy progression, traps and mutable object state; rebuild the room
+  graph and linked controls together so owners restore by authored ID. Restore a
+  warning-phase platform with a fresh transient light, never stale particles.
+  Retained enemies
   must reference the replacement hero and discard support references to old
   platforms before binding to the rebuilt traversal graph (`Enemy.revisit`).
   Inactive rooms do not advance simulation.
@@ -64,7 +73,10 @@ Tests are under `core/src/test/java/com/jlogicsoftware/kimeria/`.
 Use `world/RoomTest.java` for lifecycle assertions and
 `world/RoomReplayTest.java` for real-input routes. Add focused regression cases
 for changed state boundaries, especially repeated return/death/payment rather
-than only the first successful visit.
+than only the first successful visit. Include a pass with spent one-shot supports and
+secured mechanism/tool state, prove the required route remains possible if optional
+content is lost, and prove Restart Level restores authored state. Do not rearm/reset
+objects merely to satisfy a gate; the reset button does not make a hidden consequence fair.
 
 Run relevant existing suites, for example:
 ```sh

@@ -71,6 +71,24 @@ public class Escalator extends Actor<Escalator.State> implements Collidable, Act
         return moveSpeed;
     }
 
+    public record Snapshot(float x, float y, int direction, boolean facingRight,
+                           State state, boolean active, float animationTime, boolean removed) { }
+
+    public Snapshot snapshot() {
+        return new Snapshot(position.x, position.y, moveDirection, facingRight, current,
+            active, animationTime(), removed);
+    }
+
+    public void restore(Snapshot snapshot) {
+        position.set(snapshot.x(), snapshot.y());
+        moveDirection = snapshot.direction();
+        facingRight = snapshot.facingRight();
+        setState(snapshot.state());
+        active = snapshot.active();
+        restoreAnimationTime(snapshot.animationTime());
+        removed = snapshot.removed();
+    }
+
     @Override
     public void update(float dt) {
         if (current == State.RUN) {

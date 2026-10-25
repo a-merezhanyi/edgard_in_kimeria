@@ -1,6 +1,6 @@
 # Edgard in Kimeria — full game design
 
-**Working version — 2026-10-20.** Based on the author's remake decisions,
+**Working version — 2026-10-24.** Based on the author's remake decisions,
 mechanics notes and repository documents. Discussion and drafts are in Russian;
 committed documentation is in English.
 
@@ -51,6 +51,39 @@ finding one correct item or sequence.
 movement and jump at the right moment, wait until it comes within melee range,
 or spend a scarce ranged attack to clear the path. Planning and arcade execution
 work within the same encounter.
+
+<a id="observe-plan-and-commit-d26"></a>
+
+### Observe, plan and commit (D26)
+
+The player should be able to pause mentally, read the room, and understand its
+obstacles before committing to a jump or interaction. This is the campaign's
+puzzle-platforming rhythm: observation creates a plan, and precise action tests it.
+One-shot supports, switched mechanisms and relocated tools can remain changed after
+secured progress. A later search for a secret or ingredient may therefore differ
+from the first pass. The player may knowingly spend an optional route opportunity;
+that consequence adds choice and makes repeat exploration more interesting.
+
+This is a level-design rule, not a reset shortcut. From every reachable secured
+state produced by supported player actions, every mandatory exit, boss and required
+tablet fragment must stay reachable without a forced Restart Level.
+An optional secret or ingredient may be missed until Restart Level. The behavior
+and consequence must be readable before an irreversible action; a hidden trap does
+not become fair just because the player can reset. Test the changed route after the
+world has been secured, and test that a fresh Restart Level restores the authored
+opportunity. See the canonical [D26](DECISIONS.md#d26-observe-plan-before-committing)
+and [room-authoring contract](ROOMS.md#puzzle-platformer-authoring-contract-d26).
+
+Paying the full-level reset cost for a missed optional reward is an intentional
+consequence, not the ordinary death loop. Keep death retries short under the existing
+20-second mastered replay target; do not make long repeated sections the price of
+every mistake or use that target to erase a deliberate optional choice.
+
+Room changes belong to the live Level: forward exits and healer entry/collection
+returns secure them, revisit death rolls back to the latest secured state, and a
+first visit starts authored. Restart Level restores level-entry state under its
+existing inventory contract. Continue after closing the game still begins at the
+saved level's start; D26 adds no disk save for mutable objects.
 
 The full game's length should come from developing mechanics, new enemies,
 combined obstacles, exploration and optional challenges. Repeating a long,

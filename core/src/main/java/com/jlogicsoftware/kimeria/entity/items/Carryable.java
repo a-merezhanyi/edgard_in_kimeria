@@ -57,6 +57,24 @@ public final class Carryable extends Entity {
         velocity.set(throwObject ? (right ? THROW_SPEED : -THROW_SPEED) : 0, throwObject ? -THROW_UPWARD_SPEED : 0);
     }
 
+    public boolean isHeld() { return holder != null; }
+
+    public record Snapshot(float x, float y, float velocityX, float velocityY,
+                           boolean thrown, boolean removed) { }
+
+    public Snapshot snapshot() {
+        return new Snapshot(getX(), getY(), velocity.x, velocity.y, thrown, removed);
+    }
+
+    public void restore(Snapshot snapshot) {
+        holder = null;
+        position.set(snapshot.x(), snapshot.y());
+        velocity.set(snapshot.velocityX(), snapshot.velocityY());
+        thrown = snapshot.thrown();
+        removed = snapshot.removed();
+        if (flame != null) positionFlame();
+    }
+
     public void followHolder() {
         if (holder == null) return;
         holder.heldObjectGrip(position);

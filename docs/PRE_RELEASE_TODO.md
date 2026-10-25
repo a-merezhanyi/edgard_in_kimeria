@@ -80,8 +80,12 @@ Sources: [rooms](ROOMS.md), [healer state policy](HEALER.md).
   exit and verify fade out, a black midpoint, and fade in at the second entrance,
   with an idle hero and no camera travel. Walk the ascending platforms in room two
   and check its optional coins. Collect a coin and die: the hero must
-  return to room two, its coin and hazards must reset, and room one's coin count
-  must remain. Repeat a death, meet the healer, choose to enter the third room, defeat the boss, and watch the
+  return to room two, provisional pickups must roll back, and mutable mechanisms/platforms
+  must match the room-entry baseline (authored on first visit, latest secured on revisit);
+  room one's coin count must remain. Check [D26](DECISIONS.md#d26-observe-plan-before-committing):
+  a spent support may close an optional pickup route until Restart Level, but never the
+  required exit/boss route, and its consequence must be readable before commitment. Verify
+  Restart Level restores authored state. Repeat a death, meet the healer, choose to enter the third room, defeat the boss, and watch the
   automatic victory walk. Also pause
   mid-fade, Resume, Restart Level, and run `forest-1` without room markers.
 

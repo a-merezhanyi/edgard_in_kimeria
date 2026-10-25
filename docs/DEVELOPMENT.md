@@ -151,7 +151,7 @@ prompts. `RangedStock` owns run/level ammunition; `Level` snapshots room stock.
       `assets/audio/intro.wav` is an original synthesized placeholder; replace it and
       `Msg.INTRO_STORY` when revising the healer-narrated account of Kimeria and L'Kardina.
 - [x] Optional forest healer: dialogue in all five supported languages, recipe checklist, paid elixir and
-      repeated collection returns with retained progression and restored traversal paths
+      repeated collection returns; D26 requires retained world state and passable mandatory routes (runtime work tracked in #158; see [authoring contract](ROOMS.md#puzzle-platformer-authoring-contract-d26))
 - [x] Dev hotkeys (F1–F6, see [Controls](GAMEPLAY.md#controls))
 - [x] Chromatic-aberration glitch post-process — applied to the frozen gameplay or dialogue screen while paused
       (the pause menu and HUD stay crisp); see Deviations below

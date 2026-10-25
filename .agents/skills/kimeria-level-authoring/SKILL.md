@@ -10,8 +10,10 @@ source paths and commands below are relative to the repository root.
 
 ## Read the map contract
 
-Read [room authoring and replay protocol](../../../docs/ROOMS.md), including the
-latest measurement section: older measurements may describe removed mechanics.
+Read the campaign's [observe-plan-commit design](../../../docs/GAME_DESIGN.md#observe-plan-and-commit-d26)
+and [D26](../../../docs/DECISIONS.md#d26-observe-plan-before-committing) first. Then read
+[room authoring and replay protocol](../../../docs/ROOMS.md), including its D26 contract
+and latest measurement section: older measurements may describe removed mechanics.
 Read D3, D5, D7 and D10 in [design decisions](../../../docs/DECISIONS.md).
 For a boss chamber read [boss](../../../docs/BOSS.md); for collection-route
 changes read [healer](../../../docs/HEALER.md).
@@ -61,7 +63,14 @@ Current authoring targets are 20 seconds for a mastered required route and
 waiting, combat, interactions and backtracking in real active play time; exclude
 pauses, loading, respawn presentation and room fades per ROOMS.md. Measure a
 fresh successful attempt plus two retries; for collection-return edits also
-verify repeated forward passes without duplicate pickups or blocked traversal.
+verify repeated forward passes without duplicate pickups or blocked traversal. Test a
+later pass after one-shot supports are spent and mechanisms/tools retain their secured
+state: from every reachable secured state produced by supported actions, every mandatory
+exit, boss and future tablet fragment must remain reachable without a forced Restart Level,
+even if an optional secret/ingredient is missed. Verify Restart Level
+restores the authored opportunity. Check that the one-shot consequence is readable before
+commitment. Do not rearm/reset objects merely to pass a route gate or treat the reset
+button as a substitute for fair warning.
 
 A slow required segment remains required. Rework or split it rather than
 reclassifying it as optional or weakening a gate. Boss timings need actual
