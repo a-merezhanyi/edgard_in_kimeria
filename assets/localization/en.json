@@ -67,6 +67,7 @@
   "PICK_UP": "Pick up",
   "PUT_DOWN": "Put down",
   "THROW": "Throw",
+  "FIREBALL_STOCK_FULL": "Fireball inventory full",
   "FIREBALL": "Fireball",
   "NO_AMMO": "Empty",
   "PLACE_BLOCKED": "Blocked",

@@ -67,6 +67,7 @@
   "PICK_UP": "Взяти",
   "PUT_DOWN": "Покласти",
   "THROW": "Кинути",
+  "FIREBALL_STOCK_FULL": "Запас вогняних куль повний",
   "FIREBALL": "Вогонь",
   "NO_AMMO": "Порожньо",
   "PLACE_BLOCKED": "Зайнято",

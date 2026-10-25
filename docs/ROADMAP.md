@@ -73,8 +73,10 @@ playtests and one-minute learning checks with unfamiliar players belong to phase
   no separate pocket or simultaneous stone and torch. The held stone now renders
   in the front hand (2026-10-23); authored puzzle acceptance remains open. A stone is sufficient for the initial
   puzzle prototype; develop authored torch/light puzzles in Fortress.
-- [ ] [#98](https://github.com/jlogicgames/edgard_in_kimeria/issues/98) Implement consumable ranged attacks and rare refills. Separate throwing
-  from fireball expenditure; a single press must not perform both.
+- [x] [#98](https://github.com/jlogicgames/edgard_in_kimeria/issues/98) Implement consumable ranged attacks and rare refills. Separate throwing
+  from fireball expenditure; a single press must not perform both. Capacity three,
+  two +1 contact pickups, full-stock hints and three-icon HUD implemented locally
+  2026-10-25, pending commit/review. [Rules and audit](DIRECTIONAL_CONTROLS.md#fireball-refills-98).
 - [ ] [#99](https://github.com/jlogicgames/edgard_in_kimeria/issues/99) Implement vertical ladders. Define entry, ascent/descent, exit,
   permitted actions and interaction priority near a ladder.
 - [ ] [#100](https://github.com/jlogicgames/edgard_in_kimeria/issues/100) Check death/recovery with held objects and ammunition: no failed-attempt
@@ -276,5 +278,6 @@ does not mean completion.
   The 20/60-second play hypotheses and 100-minute campaign model are not development estimates.
 
 **Next output:** #95 dispatch and its entrance practice section are implemented;
-finish physical-device/author acceptance, rare refills and ladders, then begin the
+rare refills are implemented locally (#98). Finish physical-device/author acceptance
+and ladders, then begin the
 short Forest-mechanic prototype.

@@ -488,3 +488,47 @@ Standing inspection ([D25](DECISIONS.md#d25-standing-look-with-delayed-vertical-
 adds a deliberate vertical offset to the ordinary room-clamped camera. Horizontal
 bounds and transition ownership remain unchanged. Pose/camera inspection never
 changes the active room, collision, hero position or visible carryable attachment.
+
+
+### Fireball refill revision (#98, 2026-10-25)
+
+Local map identities (pending commit/review):
+
+- `forest.tmx` SHA-256: `3809d6b20bbb0672a8ca332ef036ac74b0a510790afad7968adb1ebdbe23f912`.
+- `forest-1.tmx` SHA-256: `0f937265c9dda74b5027b6016e85ec8fa622a5b8a9d1b5fae667bb59e6814e3f`.
+
+Only one optional `FireballRefill` object is added per map; collision geometry,
+existing IDs and routes are unchanged. Forest refill 121 belongs to `forest-canopy`,
+authored x=1824/y=320, effective y=304 after the SpawnPoints -16 layer offset,
+before RoomExit 113 into the healer/boss flow. Level-two refill 25 is at x=312/y=176,
+above horizontal Escalator 17 (authored x=304/y=240). It uses the existing native
+16×16 fireball sprite, separate from the detailed HUD art. TMX ID counters advance.
+
+`RoomReplayTest` uses production input/physics, normal assist-off live hazards and
+zero room-entry charges for required routes: first room 16.27 s; canopy 5.00 s;
+second level 5.32 s, each a fresh attempt and two identical room retries. No Ranged
+input is used. Coin routes remain 20.00 / 5.00 s. Existing secured-platform and
+collection-return route checks also pass. “All collections” in older output means
+all coins; it does not claim every artifact/refill.
+
+The optional level-two refill exercise starts with two charges, follows normal
+movement and jumps onto/above the moving platform, stops horizontally beneath the
+pickup and makes a fresh jump. Contact grants the third charge at 3.67 s on all
+three attempts, with hazards active. This exercise ends at pickup, before the
+checkpoint secures it, then retries the room to prove the opportunity/stock rollback.
+The independent required-route measurement still reaches the actual checkpoint.
+No teleport, invulnerability or disabled hazards are used in these scripted routes.
+
+`RoomTest` also verifies provisional pickup/stock rollback, secured ID 121 absence
+through three healer returns, boss-entry ammunition rollback and authored reset on
+Restart Level. `DirectionalActionsTest` verifies full-stock local feedback outside
+the tutorial, retention at capacity and automatic +1 collection when space opens.
+All 219 core tests, desktop and TeaVM release builds, localization, sprite-art and
+named-parameter checks pass. Snyk reports only the two existing LOW findings in
+unchanged `tools/PortraitExport.java`; no new security findings.
+
+A browser development smoke visually checks three fixed HUD slots, darkened spent
+charges, no ammunition number and FPS spacing, and sees the world pickup before
+the boss-room exit. This is not a human readability/balance playtest, an unassisted
+complete run, or a desktop-renderer check. Manual pickup-hint/second-level readability
+acceptance remains in [PRE_RELEASE_TODO.md](PRE_RELEASE_TODO.md).

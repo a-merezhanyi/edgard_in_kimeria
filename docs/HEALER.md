@@ -117,6 +117,7 @@ Rooms are then traversed forward again. No free backward-room navigation is adde
 | Content | Collection return / re-entry | Death in the active room |
 | --- | --- | --- |
 | Secured coins/artifacts | Remain absent, including paid ingredients | Remain absent |
+| Fireball stock and refill identities | Keep stock and consumed authored IDs; never refill or respawn a secured charge | Restore room-entry stock and provisional refills together |
 | New provisional pickups | Secured before leaving/returning | Roll back, including coin counter and artifact icons |
 | Secured defeated enemies | Remain absent, even if their death animation had not finished | Remain absent |
 | Surviving enemies | Resume retained position, direction, animation/AI and velocity with the new hero reference | Rebuilt at authored spawn/AI state; defeats from this attempt roll back |

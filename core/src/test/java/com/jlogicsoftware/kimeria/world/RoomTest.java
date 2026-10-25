@@ -49,6 +49,46 @@ class RoomTest {
     private Player player() { return new Player(assets, game, 0, 0); }
     private Level forest() { map("forest"); return new Level(assets, game, player(), "forest", Rectangle::new); }
 
+    private com.jlogicsoftware.kimeria.entity.items.FireballRefill refill(Level level) {
+        return level.objects.stream().filter(com.jlogicsoftware.kimeria.entity.items.FireballRefill.class::isInstance)
+            .map(com.jlogicsoftware.kimeria.entity.items.FireballRefill.class::cast).findFirst().orElseThrow();
+    }
+
+    @Test void fireballRefillsRollbackOnDeathAndStayConsumedOnSecuredCollectionReturns() {
+        Level level = forest();
+        level.rangedStock.restore(1);
+        level.enterNextRoom(player());
+        var first = refill(level);
+        assertEquals(1824, first.getX());
+        assertEquals(304, first.getY(), "SpawnPoints layer offset applies to the refill too");
+        first.collideWithPlayer(); first.collideWithPlayer();
+        assertEquals(2, level.rangedStock.count(), "One authored refill grants exactly one charge");
+        assertTrue(artifacts.items().isEmpty(), "Ammunition is not a recipe ingredient");
+        level.resetCurrentRoom(player());
+        assertEquals(1, level.rangedStock.count());
+        assertFalse(refill(level).isRemoved());
+        assertFalse(level.keptPickups().contains(121));
+        refill(level).collideWithPlayer();
+        level.prepareHealer();
+        assertTrue(level.keptPickups().contains(121));
+        for (int visit = 0; visit < 3; visit++) {
+            level.returnForCollection(player());
+            level.enterNextRoom(player());
+            assertTrue(level.objects.stream().noneMatch(com.jlogicsoftware.kimeria.entity.items.FireballRefill.class::isInstance));
+            assertEquals(2, level.rangedStock.count(), "Secured refill cannot be farmed");
+        }
+        level.enterNextRoom(player());
+        level.rangedStock.spend();
+        level.resetCurrentRoom(player());
+        assertEquals(2, level.rangedStock.count(), "Boss death restores its entry stock");
+        var stock = level.rangedStock;
+        stock.restartLevel();
+        Level restarted = new Level(assets, game, player(), "forest", Rectangle::new, stock);
+        restarted.enterNextRoom(player());
+        assertFalse(refill(restarted).isRemoved(), "Restart rebuilds the authored opportunity");
+        assertEquals(3, stock.count(), "Restart restores level-entry stock, not collected charges");
+    }
+
     @Test void cameraShakeNeverPullsAnInspectionViewBackIntoTheRoom() {
         Level level = forest();
         for (float y : new float[]{-400, 408}) {

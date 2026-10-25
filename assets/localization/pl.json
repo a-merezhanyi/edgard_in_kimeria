@@ -67,6 +67,7 @@
   "PICK_UP": "Podnieś",
   "PUT_DOWN": "Odłóż",
   "THROW": "Rzuć",
+  "FIREBALL_STOCK_FULL": "Zapas kul ognia jest pełny",
   "FIREBALL": "Ogień",
   "NO_AMMO": "Pusto",
   "PLACE_BLOCKED": "Blokada",
