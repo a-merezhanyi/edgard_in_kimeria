@@ -67,16 +67,17 @@ playtests and one-minute learning checks with unfamiliar players belong to phase
 - [x] [#95](https://github.com/jlogicgames/edgard_in_kimeria/issues/95) Implement the accepted control scheme: plain action attacks; down + action
   picks up/places; up + action operates a mechanism; ranged throws a held object
   or fires a fireball with an empty hand. Implemented 2026-10-22; [evidence and explicit dependencies](DIRECTIONAL_CONTROLS.md).
-- [ ] [#97](https://github.com/jlogicgames/edgard_in_kimeria/issues/97) Implement carrying one object in one hand, with the sword still available,
+- [x] [#97](https://github.com/jlogicgames/edgard_in_kimeria/issues/97) Implement carrying one object in one hand, with the sword still available,
   plus placing and throwing. [D23](DECISIONS.md#d23-one-visible-carried-object-with-no-separate-pocket)
   fixes one shared carryable slot with its object always visible in the front hand;
-  no separate pocket or simultaneous stone and torch. The held stone now renders
-  in the front hand (2026-10-23); authored puzzle acceptance remains open. A stone is sufficient for the initial
-  puzzle prototype; develop authored torch/light puzzles in Fortress.
+  no separate pocket or simultaneous stone and torch. Implemented in PR #154;
+  secured object rollback completed in PR #165. All four ticket criteria verified
+  2026-10-25; [evidence and practice route](DIRECTIONAL_CONTROLS.md#carrying-acceptance-97).
+  Authored Forest puzzles remain #102–#104; torch/light puzzles remain #112–#115.
 - [x] [#98](https://github.com/jlogicgames/edgard_in_kimeria/issues/98) Implement consumable ranged attacks and rare refills. Separate throwing
   from fireball expenditure; a single press must not perform both. Capacity three,
-  two +1 contact pickups, full-stock hints and three-icon HUD implemented locally
-  2026-10-25, pending commit/review. [Rules and audit](DIRECTIONAL_CONTROLS.md#fireball-refills-98).
+  two +1 contact pickups, full-stock hints and three-icon HUD merged in PR #168
+  on 2026-10-25. [Rules and audit](DIRECTIONAL_CONTROLS.md#fireball-refills-98).
 - [ ] [#99](https://github.com/jlogicgames/edgard_in_kimeria/issues/99) Implement vertical ladders. Define entry, ascent/descent, exit,
   permitted actions and interaction priority near a ladder.
 - [ ] [#100](https://github.com/jlogicgames/edgard_in_kimeria/issues/100) Check death/recovery with held objects and ammunition: no failed-attempt

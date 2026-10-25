@@ -270,7 +270,7 @@ are concrete forms of the attacks.
 | Melee | Remove an enemy from the right position at the right moment. | Sword implemented; current limits in D4/D10. |
 | Ranged attack | A consumable advantage against distant danger. | Consumable fireball, capacity three and two rare single-charge pickups implemented for the test campaign (#98); campaign economy remains future work. |
 | Interaction | Operate a lever or another mechanism. | Up + Action selects a single mechanism (#95). |
-| Pick up and place | Move a stone or torch to change the room situation. | Down + Action implemented for one stone/portable torch (#95); environmental puzzles remain #97. |
+| Pick up and place | Move a stone or torch to change the room situation. | One visible slot, Down + Action pickup/place and Ranged throw implemented (#95/#97); authored Forest puzzles remain #102–#104, Fortress light puzzles #112–#115. |
 | Throw an object | Affect something distant or place an object ahead. | Implemented on Ranged; does not spend fireballs (#95). |
 | Vertical ladder | Change elevation, choose a route and movement timing. | Accepted addition; detailed controls open. |
 | Double jump | An extra airborne jump used in authored routes and wind tasks. | Accepted from Steppe; unlock and exact rules open. |
