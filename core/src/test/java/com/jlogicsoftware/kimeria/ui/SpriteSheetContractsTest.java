@@ -14,6 +14,7 @@ class SpriteSheetContractsTest {
         matches(SpriteSheets.TORCH, 1, 1);
         matches(SpriteSheets.FIREBALL, 1, 1);
         matches(SpriteSheets.LEVER, 2, 1);
+        matches(SpriteSheets.LADDER, 2, 1);
         matches(SpriteSheets.PLAYER_LOOK, 2, 1);
         matches(SpriteSheets.PLAYER, 5, 10);
     }

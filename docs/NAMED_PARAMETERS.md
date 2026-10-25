@@ -10,7 +10,7 @@ not to replace every numeric character with a constant.
 - **Map grid:** `TiledMapData.tileWidth/tileHeight` come from TMX/TSX. They describe
   map cells, not character frames, item artwork, collision bodies or HUD slots.
 - **Runtime artwork:** `SpriteSheets` describes native frame paths and dimensions.
-  Torch, carryables, fireballs and levers use the same definitions when loading
+  Torch, carryables, fireballs, levers and ladders use the same definitions when loading
   and drawing. The player uses its frame format plus a named `CLIPS` data table.
 - **Offline artwork:** `tools/sprite_layouts.py` owns export dimensions, selected
   head bounds, palette/alpha settings and the image-validator contracts. Export

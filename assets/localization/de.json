@@ -66,6 +66,8 @@
   "ACTION": "Aktion",
   "PICK_UP": "Nehmen",
   "PUT_DOWN": "Ablegen",
+  "CLIMB": "Klettern",
+  "CLIMB_DOWN": "Hinabklettern",
   "THROW": "Werfen",
   "FIREBALL_STOCK_FULL": "Feuerballvorrat voll",
   "FIREBALL": "Feuer",

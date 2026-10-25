@@ -785,4 +785,196 @@ class DirectionalActionsTest {
         assertTrue(level.player.contextHint().contains("Put down"), "Every new pickup in the first room teaches again");
     }
 
+    // -- Vertical ladders (#99) --
+
+    private static final float LADDER_X = 104, LEDGE_Y = 240, FLOOR_Y = 320;
+    private int jump() { return leftHanded ? Input.Keys.Z : Input.Keys.J; }
+
+    private void ladderScene(boolean left) {
+        leftHanded = left; held.clear(); pressed.clear();
+        level = new Level(assets, game, player(), "ladder-test", Rectangle::new);
+        first = new CountingSwitch("first");
+        level.objects.add(first);
+        frames(2);
+    }
+    private void standAt(float centerX, float feetY) {
+        var p = level.player;
+        p.position.set(centerX - p.hitbox.offsetX - p.hitbox.width / 2, feetY - p.hitbox.offsetY - p.hitbox.height);
+        p.velocity.setZero(); frames(10);
+    }
+    private float feet() { Rectangle b = level.player.hitboxBounds(); return b.y + b.height; }
+    private float bodyCentre() { Rectangle b = level.player.hitboxBounds(); return b.x + b.width / 2; }
+    /** A mechanism zone covering the whole ladder column, so Up + Action has a real target everywhere on it. */
+    private void mechanismAlongLadder() {
+        level.triggers.add(new com.jlogicsoftware.kimeria.entity.items.Trigger(5, 96, 240, 16, 80, "first"));
+    }
+
+    @org.junit.jupiter.params.ParameterizedTest @org.junit.jupiter.params.provider.ValueSource(booleans = {false, true})
+    void upClimbsToTheTopAndStepsOntoTheLedgeWhereUpDoesNotRegrab(boolean left) {
+        ladderScene(left); standAt(LADDER_X - 6, FLOOR_Y);
+        held.add(up()); frames(2);
+        assertTrue(level.player.onLadder());
+        assertEquals(Player.State.LADDER, level.player.getState());
+        assertEquals(LADDER_X, bodyCentre(), .01, "Taking hold centres the hero on the rungs");
+        float before = feet(); frames(30);
+        assertTrue(feet() < before - 20, "Climbing moves up at a steady speed");
+        frames(90);
+        assertFalse(level.player.onLadder());
+        assertEquals(LEDGE_Y, feet(), .05, "Stepping off the top stands on the ledge surface");
+        frames(40);
+        assertFalse(level.player.onLadder(), "Held Up on a ledge must not grab the ladder again");
+        assertEquals(LEDGE_Y, feet(), .05);
+    }
+
+    @org.junit.jupiter.params.ParameterizedTest @org.junit.jupiter.params.provider.ValueSource(booleans = {false, true})
+    void downFromTheLedgeDescendsAndStepsOffAtTheBottom(boolean left) {
+        ladderScene(left); standAt(LADDER_X, LEDGE_Y);
+        assertEquals(LEDGE_Y, feet(), .05);
+        held.add(down()); frames(2);
+        assertTrue(level.player.onLadder());
+        assertTrue(feet() > LEDGE_Y);
+        frames(150);
+        assertFalse(level.player.onLadder());
+        assertEquals(FLOOR_Y, feet(), .05);
+    }
+
+    @org.junit.jupiter.params.ParameterizedTest @org.junit.jupiter.params.provider.ValueSource(booleans = {false, true})
+    void upAtTheTopSurfaceAndDownAtTheBottomDoNothing(boolean left) {
+        ladderScene(left); standAt(LADDER_X, LEDGE_Y);
+        held.add(up()); frames(20);
+        assertFalse(level.player.onLadder());
+        held.clear(); standAt(LADDER_X - 6, FLOOR_Y);
+        held.add(down()); frames(20);
+        assertFalse(level.player.onLadder());
+        held.clear(); standAt(LADDER_X + 40, FLOOR_Y);
+        held.add(up()); frames(20);
+        assertFalse(level.player.onLadder(), "A ladder is only taken from beside its rungs");
+    }
+
+    @org.junit.jupiter.params.ParameterizedTest @org.junit.jupiter.params.provider.ValueSource(booleans = {false, true})
+    void upPlusActionOperatesTheMechanismAndNeverClimbsEvenAfterActionIsReleased(boolean left) {
+        ladderScene(left); mechanismAlongLadder(); standAt(LADDER_X - 6, FLOOR_Y);
+        held.add(up()); held.add(action()); pressed.add(action()); frames(1);
+        pressed.clear(); frames(20);
+        assertEquals(1, first.count);
+        assertFalse(level.player.onLadder());
+        assertEquals(FLOOR_Y, feet(), .05);
+        held.remove(action()); frames(30);
+        assertFalse(level.player.onLadder(), "Up already belonged to the action; it must be pressed again to climb");
+        held.clear(); frames(2); held.add(up()); frames(2);
+        assertTrue(level.player.onLadder());
+    }
+
+    @org.junit.jupiter.params.ParameterizedTest @org.junit.jupiter.params.provider.ValueSource(booleans = {false, true})
+    void actionOnTheLadderOperatesWithoutMovingAndClimbingResumesOnlyAfterANewPress(boolean left) {
+        ladderScene(left); mechanismAlongLadder(); standAt(LADDER_X - 6, FLOOR_Y);
+        held.add(up()); frames(30);
+        assertTrue(level.player.onLadder());
+        float height = feet();
+        held.add(action()); pressed.add(action()); frames(1); pressed.clear(); frames(20);
+        assertEquals(1, first.count, "Up + Action operates the mechanism once");
+        assertEquals(height, feet(), 1.5, "It must not also keep climbing");
+        float stopped = feet();
+        held.remove(action()); frames(20);
+        assertEquals(stopped, feet(), .001, "Releasing Action keeps the spent Up from climbing");
+        held.clear(); frames(2); held.add(up()); frames(10);
+        assertTrue(feet() < stopped);
+    }
+
+    @org.junit.jupiter.params.ParameterizedTest @org.junit.jupiter.params.provider.ValueSource(booleans = {false, true})
+    void swordAndPickUpAreUnavailableOnALadderButRangedWorksAndKeepsTheGrip(boolean left) {
+        ladderScene(left); standAt(LADDER_X - 6, FLOOR_Y);
+        held.add(up()); frames(30); held.clear(); frames(1);
+        assertTrue(level.player.onLadder());
+        var stone = new com.jlogicsoftware.kimeria.entity.items.Carryable(level, 40,
+            com.jlogicsoftware.kimeria.entity.items.Carryable.Kind.STONE, bodyCentre() - 4, feet() - 8);
+        level.objects.add(stone); frames(1);
+        float height = feet();
+        tap(action());
+        assertNotEquals(Player.State.ATTACKING, level.player.getState(), "The sword needs footing");
+        held.add(down()); tap(action()); held.remove(down());
+        assertNull(level.player.carriedObject(), "Pick up and put down need footing too");
+        assertTrue(level.player.onLadder());
+        assertEquals(height, feet(), 1.5);
+        held.clear(); frames(30);
+        assertTrue(level.player.onLadder());
+        tap(ranged());
+        assertEquals(2, level.player.ammunition(), "A fireball can be fired from a ladder");
+        assertTrue(level.player.onLadder(), "Firing does not let go");
+    }
+
+    @org.junit.jupiter.params.ParameterizedTest @org.junit.jupiter.params.provider.ValueSource(booleans = {false, true})
+    void jumpLetsGoWithAHopAndTheDirectionHeldDrivesItAwayFromTheLadder(boolean left) {
+        ladderScene(left); standAt(LADDER_X - 6, FLOOR_Y);
+        held.add(up()); frames(10); // Low on the ladder, so the hop cannot reach the ledge above.
+        assertTrue(level.player.onLadder());
+        held.add(left ? Input.Keys.RIGHT : Input.Keys.D); tap(jump());
+        assertFalse(level.player.onLadder());
+        assertTrue(level.player.velocity.y < 0, "Jumping off hops upward");
+        frames(10);
+        assertTrue(bodyCentre() > LADDER_X + 4, "The held direction carries the hero off the ladder");
+        assertFalse(level.player.onLadder(), "Held Up must not snatch the ladder straight back");
+        held.clear(); frames(200); // Let go of Up as well, or it would take hold again after the short delay.
+        assertEquals(FLOOR_Y, feet(), .05, "The hero comes down onto the floor");
+    }
+
+    @org.junit.jupiter.params.ParameterizedTest @org.junit.jupiter.params.provider.ValueSource(booleans = {false, true})
+    void gamepadStickClimbsAndStepsOff(boolean left) {
+        ladderScene(left); standAt(LADDER_X - 6, FLOOR_Y);
+        int axis = left ? mapping.axisRightY : mapping.axisLeftY;
+        axes[axis] = -1; frames(2);
+        assertTrue(level.player.onLadder());
+        frames(120);
+        assertFalse(level.player.onLadder());
+        assertEquals(LEDGE_Y, feet(), .05);
+        axes[axis] = 1; frames(2);
+        assertTrue(level.player.onLadder(), "Stick down from the top descends");
+        axes[axis] = 0;
+    }
+
+    @org.junit.jupiter.params.ParameterizedTest @org.junit.jupiter.params.provider.ValueSource(booleans = {false, true})
+    void touchStickClimbsAndAnActionTouchDoesNotClimbAndOperate(boolean left) {
+        ladderScene(left); mechanismAlongLadder(); standAt(LADDER_X - 6, FLOOR_Y);
+        finger(0, mirrored(80), 245); frames(2);
+        assertTrue(level.player.onLadder(), "Dragging the stick up takes hold");
+        frames(5);
+        finger(1, mirrored(520), 318); frames(1);
+        assertEquals(1, first.count);
+        float height = feet(); frames(20);
+        assertEquals(height, feet(), .001);
+        java.util.Arrays.fill(fingers, false); frames(1);
+    }
+
+    @Test void theFirstForestRoomTeachesTheLadderOnlyThere() {
+        scene(false);
+        level = new Level(assets, game, player(), "forest", Rectangle::new);
+        frames(2);
+        var ladder = level.ladders.get(0);
+        standAt(ladder.centerX(), ladder.bottomY());
+        assertEquals("W: Climb", level.player.contextHint());
+        held.add(up()); frames(2);
+        assertTrue(level.player.onLadder());
+        assertEquals("", level.player.contextHint(), "Once attached nothing more needs teaching");
+        held.clear(); held.add(jump()); frames(1); held.clear();
+        standAt(ladder.centerX(), ladder.topY());
+        assertEquals("S: Climb down", level.player.contextHint());
+        standAt(ladder.centerX() + 120, ladder.bottomY());
+        assertEquals("", level.player.contextHint());
+        ladderScene(false);
+        standAt(LADDER_X - 6, FLOOR_Y);
+        assertEquals("", level.player.contextHint(), "Rooms outside the first teaching room do not repeat the lesson");
+    }
+
+    @Test void theShippedFirstRoomLadderLeadsFromTheFloorToTheChickenLedge() {
+        scene(false);
+        level = new Level(assets, game, player(), "forest", Rectangle::new);
+        frames(2);
+        var ladder = level.ladders.get(0);
+        standAt(ladder.centerX(), ladder.bottomY());
+        held.add(up()); frames(150);
+        assertFalse(level.player.onLadder());
+        assertEquals(ladder.topY(), feet(), .05);
+        assertTrue(level.currentRoomBounds().contains(level.player.hitboxBounds()));
+    }
+
 }

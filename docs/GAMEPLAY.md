@@ -29,6 +29,9 @@ one nearby object or puts it down; **Up + Action** operates one selected mechani
 Conflicting Up+Down consumes Action without doing anything. Holding Action never
 repeats an interaction. Ranged throws the held object without spending ammunition;
 with an empty hand it spends one fireball, if available.
+**Ladders:** Up beside a ladder (Down from its top surface) takes hold; Up/Down climb and
+Jump lets go. Ranged and mechanisms still work while attached; the sword and pick up/put down
+do not. Up/Down held with Action never climbs ([D28](DECISIONS.md#d28-vertical-ladders)).
 
 | Device | Normal | Left-handed (Options) |
 | --- | --- | --- |
@@ -44,7 +47,7 @@ the camera eases back over 0.2 seconds, matching the immediate return to idle. C
 The full inspection distance is allowed even outside the current room or with
 the hero temporarily outside the view; horizontal room bounds remain intact. Deliberate inspection is an explicit exception to the ordinary
 vertical room clamp: current Forest rooms are only 8 px taller than the viewport.
-This changes neither hitboxes nor movement and is not crouching or ladder climbing.
+This changes neither hitboxes nor movement and is not crouching; ladder climbing is separate (Up takes hold beside a ladder).
 UI/layout boundaries discard the old hold and require vertical release before
 inspection can restart. A carried object stays in the unchanged front palm.
 When a reachable pickup or usable mechanism is available, allow a one-second
@@ -96,7 +99,8 @@ selection, recovery, test evidence and the explicit **#99 ladder dependency** ar
 charge automatically on contact: before the Forest boss entrance and above a moving
 platform in level two. Full stock leaves the pickup in place and shows a local
 “Fireball inventory full” hint using the mechanism hint fade/slide system in every
-room. Ladders and Steppe double jump remain separate work.
+room. Steppe double jump remains separate work. Ladders are implemented ([D28](DECISIONS.md#d28-vertical-ladders)):
+Up takes hold beside rungs, Down from a top surface, Jump lets go; see [Ladders](DIRECTIONAL_CONTROLS.md#ladders-99).
 
 The web build opens on a single-button start screen (click, Enter or Space): browsers block audio
 until the page has had a user gesture, so the menu music waits for it. Other platforms skip it.

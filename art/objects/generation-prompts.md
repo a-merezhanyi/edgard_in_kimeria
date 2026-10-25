@@ -68,3 +68,36 @@ Exact prompt:
 
 > Create a single gameplay fireball projectile sprite for Edgard in Kimeria. Reference is ACTUAL original game sprites, match their very tiny crisp old pixel art with black outlines. Exactly a 16 by 16 pixel design, magnified as equal square blocks, transparent background. Fireball travels RIGHT: round bright yellow core at RIGHT, two or three orange flame tips trailing LEFT. Use only near black outline, dark red, red-orange, orange, golden yellow, pale yellow and transparent. No gradients, no antialiasing, no glow, no semitransparency, no realism, no text. Simple legible silhouette.
 
+## Ladder (2026-10-25, #99)
+
+Mode: **hand-authored native pixels, not image generation.** No image-generation tool was
+available when the ladder was made, so the 32×16 master `ladder-pixel.png` was written
+directly from the pixel grids below (one letter per pixel; `.` transparent, `O` near-black
+outline, `M`/`H` rail shade/highlight, `R`/`S` rung lit/shaded). Front-facing, per the default
+for interactive objects. Replace it with a generated master if the author prefers: keep the
+registered frame order and the 16×16 frame size, then run `python3 tools/export_object_sprites.py`.
+
+`export_ladders()` only validates the size, makes alpha binary and quantizes both frames to one
+shared palette (6 entries including transparency). Frame 0 is the top segment (capped rails), frame 1
+the repeating middle; the rung phase matches so a stack reads as one ladder, and both rail ends
+run to the tile edge. Runtime `assets/images/objects/ladder.png` is 32×16, nearest-filtered.
+
+```
+frame 0 (top)       frame 1 (middle)
+..OOOO....OOOO..    ..OMHO....OHMO..
+..OMHO....OHMO..    ..OMHO....OHMO..
+..OMHOOOOOOHMO..    ..OMHOOOOOOHMO..
+..OMHORRRROHMO..    ..OMHORRRROHMO..
+..OMHOSSSSOHMO..    ..OMHOSSSSOHMO..
+..OMHOOOOOOHMO..    ..OMHOOOOOOHMO..
+..OMHO....OHMO..    ..OMHO....OHMO..
+..OMHO....OHMO..    ..OMHO....OHMO..
+..OMHO....OHMO..    ..OMHO....OHMO..
+..OMHO....OHMO..    ..OMHO....OHMO..
+..OMHOOOOOOHMO..    ..OMHOOOOOOHMO..
+..OMHORRRROHMO..    ..OMHORRRROHMO..
+..OMHOSSSSOHMO..    ..OMHOSSSSOHMO..
+..OMHOOOOOOHMO..    ..OMHOOOOOOHMO..
+..OMHO....OHMO..    ..OMHO....OHMO..
+..OMHO....OHMO..    ..OMHO....OHMO..
+```

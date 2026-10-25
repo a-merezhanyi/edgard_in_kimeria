@@ -66,6 +66,8 @@
   "ACTION": "Akcja",
   "PICK_UP": "Podnieś",
   "PUT_DOWN": "Odłóż",
+  "CLIMB": "Wspinaj się",
+  "CLIMB_DOWN": "Zejdź",
   "THROW": "Rzuć",
   "FIREBALL_STOCK_FULL": "Zapas kul ognia jest pełny",
   "FIREBALL": "Ogień",

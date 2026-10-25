@@ -66,6 +66,8 @@
   "ACTION": "Action",
   "PICK_UP": "Pick up",
   "PUT_DOWN": "Put down",
+  "CLIMB": "Climb",
+  "CLIMB_DOWN": "Climb down",
   "THROW": "Throw",
   "FIREBALL_STOCK_FULL": "Fireball inventory full",
   "FIREBALL": "Fireball",

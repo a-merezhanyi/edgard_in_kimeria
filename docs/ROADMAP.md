@@ -78,8 +78,9 @@ playtests and one-minute learning checks with unfamiliar players belong to phase
   from fireball expenditure; a single press must not perform both. Capacity three,
   two +1 contact pickups, full-stock hints and three-icon HUD merged in PR #168
   on 2026-10-25. [Rules and audit](DIRECTIONAL_CONTROLS.md#fireball-refills-98).
-- [ ] [#99](https://github.com/jlogicgames/edgard_in_kimeria/issues/99) Implement vertical ladders. Define entry, ascent/descent, exit,
-  permitted actions and interaction priority near a ladder.
+- [x] [#99](https://github.com/jlogicgames/edgard_in_kimeria/issues/99) Implement vertical ladders. Define entry, ascent/descent, exit,
+  permitted actions and interaction priority near a ladder. Implemented 2026-10-25;
+  [rules](DECISIONS.md#d28-vertical-ladders), [evidence and limits](DIRECTIONAL_CONTROLS.md#ladders-99).
 - [x] [#100](https://github.com/jlogicgames/edgard_in_kimeria/issues/100) Check death/recovery with held objects and ammunition: no failed-attempt
   stock loss, duplicated pickups or resource accumulation through retries. Verified 2026-10-25
   with 95 focused tests and Chrome checks; [results](ROLLBACK_VALIDATION.md).
