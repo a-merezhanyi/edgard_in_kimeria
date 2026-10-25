@@ -49,8 +49,10 @@ warning art alone must not damage. Check both facings and relevant frame boundar
 
 For the existing forest boss preserve, unless the request revises the design:
 - A player swing damages this boss once. A normal approach/attack/recovery hit
-  interrupts into recoil/counter; hits during protected counter states still
-  damage without restarting the timer or recursively scheduling another counter.
+  interrupts into recoil/counter. The orange HURT/WARNING/COUNTER/COUNTER_RECOVERY
+  sequence is invulnerable to sword and fireball damage; rejected hits produce no
+  landed-hit feedback or timer changes. Register a rejected sword overlap for that
+  swing, and consume a contacting fireball once.
 - A same-frame interruption wins over a normal strike and its pending shake.
   Lethal sword damage cancels remaining boss attack/body damage; a hero already
   killed by another hazard cannot deliver a posthumous hit.

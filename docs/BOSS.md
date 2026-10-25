@@ -77,9 +77,10 @@ The boss starts a normal attack when its future axe box overlaps the hero. Facin
 position stay locked through normal attack, recoil, warning and counter; there is no
 tracking lunge. Retreating and jumping are both available after sword recovery. At the
 latest possible beginning-of-swing interruption the remaining 0.7 s hero lock still leaves
-about 0.65 s before the counter can damage. Further hits during recoil, warning, strike
-or counter recovery damage the boss without restarting or interrupting that sequence.
-After counter recovery, every new ordinary attack becomes interruptible again.
+about 0.65 s before the counter can damage. The orange HURT, WARNING, COUNTER and
+COUNTER_RECOVERY states are invulnerable to sword and fireball damage. Rejected hits do
+not change energy, feedback, state or timer. After counter recovery, the boss becomes
+vulnerable again and each new ordinary attack can be interrupted.
 
 Ordinary approach, normal melee and ordinary recovery all react to a landed sword hit by
 cancelling their current action and entering the recoil/counter sequence. This closes the
@@ -100,9 +101,11 @@ Sword damage resolves after the player's movement. Fireball damage resolves when
 projectile overlaps the boss during the world update. A same-frame interruption wins over
 the normal strike or its pending completion shake. Lethal damage wins over that boss's
 remaining attack/body damage. A hero already killed by another hazard cannot land a
-posthumous sword hit or fireball hit. Further hits during counter still deal damage without
-restarting its timer; sword hits use 1x/10x damage and fireballs use 2. A lethal hit cancels
-the attack and its completion shake. An empowered sword hit still
+posthumous sword hit or fireball hit. Hits during the orange retaliation sequence are
+rejected before damage, feedback, shake or death handling; a contacting fireball is still
+consumed, and a sword swing cannot become a delayed hit after protection ends. When
+vulnerable, sword hits use 1x/10x damage and fireballs use 2. A lethal hit cancels the
+attack and its completion shake. An empowered sword hit still
 creates its own brief impact shake, including on the lethal hit. There is no recursive counter queue.
 
 Shake is only a render-camera offset; it never changes the chase target or collisions.
@@ -134,11 +137,34 @@ save format. Checkpoint contact and F5 are blocked throughout a map containing a
 including before entering its chamber. The separate F4 developer level-skip remains a
 deliberate debug tool.
 
-## Validation record (#73/#75)
+## Issue #160 validation (2026-10-24)
+
+All **207 core tests** passed. Focused combat, directional-input, boss-feedback and artifact
+inventory suites passed, followed by `:core:check`, the desktop JAR and TeaVM release builds,
+localization validation, authored-sprite validation and named-parameter validation against
+base `998c138`.
+
+A debug-assisted browser input/render smoke used F2 invulnerability and F6 twice to reach
+the healer, then clicked the “Enter the boss fight” button and approached with D. Holding K
+for 800 ms landed the first swing; a fresh 140 ms K press during orange left energy at 11/12
+in both captured views. After orange ended, a fresh 160 ms K press reduced energy to 10/12 and showed
+the expected blood and new orange phase. This confirms the visible protection and accepted
+hit in that debug-assisted encounter, but does not measure unassisted balance.
+
+A second no-elixir browser smoke checked fireball charges. A vulnerable sword hit reduced
+energy to 9/12. Holding L for 160 ms during orange consumed one charge (3→2) without changing
+energy. After orange ended, a fresh 160 ms L press reduced energy to 7/12, consumed one more
+charge (2→1), and showed blood plus a new orange phase. Manual elixir testing remains pending.
+
+## Historical validation record (#73/#75)
+
+The dated checks in this section document the earlier design, before issue #160 made the
+orange retaliation invulnerable. References below to counter damage or feedback are
+historical observations and do not describe current behavior.
 
 `BossCombatTest` exercises the real forest map, player input and room update order with
 rendering disabled. It covers throne/wake/pursuit, one damage per swing, normal and elixir
-energy, interrupting wind-up/active/completion frames, counter damage without interruption,
+energy, interrupting wind-up/active/completion frames, historical counter damage without interruption,
 jump-and-retreat after full sword recovery at 30/60/120 steps per second, top/body contact,
 missed-attack shake, reset/arrival with retained elixir, lethal counter damage and exactly-once
 completion after the protected walk. `ArtifactInventoryTest` covers clearing the effect at
@@ -173,12 +199,12 @@ boss sits on the throne and during the protected victory walk. It disappears wit
 or level. The label is localized in all five supported languages; a green potion and `x10` indicate the
 consumed elixir and remain on boss retry. No automatic artifact bonus is implied.
 
-Each landed sword swing or fireball triggers one 75 ms impact sound, a 32-droplet crimson blood spray
+Each accepted sword swing or fireball triggers one 75 ms impact sound, a 32-droplet crimson blood spray
 at the contact side (48 droplets with 1.8x thickness, 4x trails and a brief impact shake while the elixir is active),
 and a 250 ms glow/fade over the lost slots. Only an empowered sword hit uses 48 droplets
 and impact shake. Fireballs and ordinary sword hits use 32 droplets and no impact shake.
-Counterattack hits have the same feedback without changing the counter's state or timer.
-Lethal hits still show their impact. Missing a swing or bouncing off the head produces no
+Hits rejected during orange retaliation produce no landed-hit feedback. Vulnerable lethal
+hits still show their impact. Missing a swing or bouncing off the head produces no
 sword-damage feedback.
 
 On death, remember the boss's actual remaining energy. The rebuilt boss immediately has
@@ -197,19 +223,21 @@ in `BossHud`; equivalent-sized art replacements require no code change. The shor
 and restore WAVs are independently replaceable too.
 
 `BossFeedbackTest` covers refill duration, ten-slot elixir feedback and removal of effects
-from the previous attempt. The gameplay integration tests check one sound per swing,
-feedback during an uninterruptible counter, full actual energy during the display refill,
+from the previous attempt. The gameplay integration tests check one sound per accepted swing,
+no new feedback during invulnerable retaliation, full actual energy during the display refill,
 no repeated cue and the unchanged arrival duration.
 
-Follow-up verification on 2026-10-15: all **94 core tests** pass; desktop and TeaVM release
-builds succeed. Real libGDX framebuffer checks verified normal/empty slots, Ukrainian label,
-elixir icon, partial restoration during arrival, full restoration, and sword impact during
-the counterattack. The capture harness used isolated preferences and was removed afterwards.
+Follow-up verification on 2026-10-15: all **94 core tests** passed at the time; desktop and
+TeaVM release builds succeeded. Real libGDX framebuffer checks verified normal/empty slots,
+Ukrainian label, elixir icon, partial restoration during arrival, full restoration, and sword
+impact feedback during the counterattack. Those counter-feedback observations predate #160.
+The capture harness used isolated preferences and was removed afterwards.
 
 Follow-up on 2026-10-16: the reported hit-and-retreat sequence was reproduced in a failing
-regression test before the fix. All **98 core tests** now pass, including repeated normal
+regression test before the fix. All **98 core tests** then passed, including repeated normal
 interruptions over three counter cycles, approach-range hits after the first counter,
-ordinary recovery interruption and nonrecursive damage during counter recovery. The full
+ordinary recovery interruption and the then-current nonrecursive damage during counter recovery.
+That counter-damage behavior was superseded by issue #160. The full
 second attack row is used for preparation, strike and recovery; normal attack timing and
 the existing counter escape allowance are unchanged.
 
@@ -261,10 +289,10 @@ gravity, red streaks and brief floor splashes. It lasts up to 0.9 s, survives le
 and is cleared by the normal world cleanup or room retry. It uses the existing white
 quad like other procedural effects, so no new image or particle texture is required.
 
-All **104 core tests** pass, and desktop/web builds succeed. Regression checks cover
-blocking held movement from both sides without damage, safe stomp and close sword contact,
-feedback during counters, and finite particle motion/cleanup. A real libGDX framebuffer
-check confirmed the red spray is visible against the boss-room fog and background.
+At the time, all **104 core tests** passed, and desktop/web builds succeeded. Regression
+checks covered blocking held movement from both sides without damage, safe stomp and close
+sword contact, counter-hit feedback, and finite particle motion/cleanup. A real libGDX
+framebuffer check confirmed the red spray is visible against the boss-room fog and background.
 
 Author tuning: blood droplet count, sizes and streak lengths were halved; floor splashes
 are thinner and colours use a darker, less saturated red to match the room palette.
