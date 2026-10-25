@@ -80,8 +80,10 @@ playtests and one-minute learning checks with unfamiliar players belong to phase
   on 2026-10-25. [Rules and audit](DIRECTIONAL_CONTROLS.md#fireball-refills-98).
 - [ ] [#99](https://github.com/jlogicgames/edgard_in_kimeria/issues/99) Implement vertical ladders. Define entry, ascent/descent, exit,
   permitted actions and interaction priority near a ladder.
-- [ ] [#100](https://github.com/jlogicgames/edgard_in_kimeria/issues/100) Check death/recovery with held objects and ammunition: no failed-attempt
-  stock loss, duplicated pickups or resource accumulation through retries.
+- [x] [#100](https://github.com/jlogicgames/edgard_in_kimeria/issues/100) Check death/recovery with held objects and ammunition: no failed-attempt
+  stock loss, duplicated pickups or resource accumulation through retries. Verified 2026-10-25
+  with 95 focused tests and Chrome checks; [results](ROLLBACK_VALIDATION.md).
+  The separate development F4 transition crash is tracked in #170.
 - [ ] [#101](https://github.com/jlogicgames/edgard_in_kimeria/issues/101) Check keyboard, gamepad and touch in both handedness layouts. Hints show
   the selected action/target. Check held buttons after pause, dialogue and transitions.
 
