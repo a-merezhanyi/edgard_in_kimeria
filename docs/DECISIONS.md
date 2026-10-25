@@ -572,6 +572,9 @@ Authored checkpoints cannot bypass boss defeat or its victory walk. See [BOSS.md
   for both stone and torch are implemented (2026-10-23). Both use the player's
   foreground pass and animated palm attachment. A carried-item HUD icon is not
   implemented by this change; it remains optional presentation.
+  The four carrying criteria in #97 were verified on 2026-10-25 against PR #154
+  and secured-state retention in PR #165; see the
+  [acceptance evidence](DIRECTIONAL_CONTROLS.md#carrying-acceptance-97).
 - **Details:** [Carrying model](GAME_DESIGN.md#one-visible-carryable-slot-d23),
   [current behavior](DIRECTIONAL_CONTROLS.md), [room lifecycle](ROOMS.md),
   [mechanics MVP](ROADMAP.md#mechanics-mvp).

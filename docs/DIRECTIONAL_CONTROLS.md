@@ -122,6 +122,36 @@ forward entry secures remaining stock. Healer preparation/collection return secu
 the current stock without replenishing it. Restart Level restores level-entry stock.
 The persistent save still contains only a level index.
 
+## Carrying acceptance (#97)
+
+All four criteria in [#97](https://github.com/jlogicgames/edgard_in_kimeria/issues/97)
+are implemented: one visible hand slot with sword use retained; Down + Action
+pickup/place; Ranged throw without a fireball; and documented room ownership/rollback.
+The mechanics and entrance practice objects shipped in
+[PR #154](https://github.com/jlogicgames/edgard_in_kimeria/pull/154), closing #95;
+secured mutable-object restoration followed in
+[PR #165](https://github.com/jlogicgames/edgard_in_kimeria/pull/165), addressing #158.
+
+Practice in the first `forest` room: touch stone 116, press S+K, release,
+walk with D/A, release movement, press K to use the sword, wait for the swing to end,
+press S+K to place, release, approach and pick up again, then press L to throw.
+The mirrored layout uses Down+X, arrows, X and C. Stock remains unchanged
+through this sequence; a separate fresh Ranged press with an empty hand fires.
+
+State owners are `Player.carried`, `Carryable.holder` and the authored room's
+object ID in `Level`. A secured `Carryable.Snapshot` stores x/y, velocity x/y,
+thrown and removed flags. Before securing, release a held object onto safe support;
+restoration clears the old holder. First-visit death restores authored state,
+revisit death restores the latest secured state, and Restart Level rebuilds authored
+objects. Tools never enter the persistent save. See [room lifecycle](ROOMS.md).
+
+Verification on 2026-10-25: `DirectionalActionsTest`, `RoomTest` and `RoomReplayTest`
+pass. Coverage includes sword use while carrying, one-slot selection, pickup/place,
+throw/fireball separation, shipped entrance practice in both keyboard layouts,
+holder cleanup, secured tool restoration and collection-return routes.
+This audit adds no new physical-device or human playtest evidence. Authored
+environmental puzzles and wider recovery/device acceptance remain separate below.
+
 ## Explicit dependencies
 
 - [#99](https://github.com/jlogicgames/edgard_in_kimeria/issues/99) still owns real
@@ -129,9 +159,9 @@ The persistent save still contains only a level index.
   handler or ladder playtest is claimed here. `Player.verticalMovement()` exposes
   Up/Down normally, but returns zero throughout a held directional Action; the
   future ladder consumer must use it so one chord cannot climb and activate.
-- [#97](https://github.com/jlogicgames/edgard_in_kimeria/issues/97) has a working
-  stone/portable-torch baseline here; authored environmental puzzles and author
-  acceptance remain in its prototype work.
+- [#97](https://github.com/jlogicgames/edgard_in_kimeria/issues/97) meets its carrying
+  criteria; [evidence above](#carrying-acceptance-97). Authored environmental puzzles
+  remain #102–#104 (Forest) and #112–#115 (Fortress).
 - [#98](https://github.com/jlogicgames/edgard_in_kimeria/issues/98) still owns rare
   refills, refill identities/rollback and campaign balancing. It now has a real
   consumable fireball handler to build on. No refill/shop is advertised in this build.
