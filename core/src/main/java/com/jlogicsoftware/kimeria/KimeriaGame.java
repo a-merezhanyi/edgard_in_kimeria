@@ -583,6 +583,12 @@ public class KimeriaGame extends ApplicationAdapter implements GameContext {
         updateMenuMusic(dt, musicWanted);
         handleDevHotkeys();
 
+        // Development hotkeys can replace the player and clear the level here.
+        // Re-evaluate presentation ownership before rendering this same frame.
+        levelVisible = uiState == UiState.PLAYING || (uiState == UiState.PAUSED && !pausedHealer);
+        menuBackdropActive = !levelVisible && !storyScreenActive() && uiState != UiState.HEALER
+            && !(uiState == UiState.PAUSED && pausedHealer);
+
         Vector2 shake = level != null ? level.cameraShakeOffset(visibleWorldRect(new Rectangle())) : new Vector2();
         camera.position.set(cameraTarget.x + LOGICAL_W / 2f + shake.x, cameraTarget.y + LOGICAL_H / 2f + shake.y, 0);
         camera.update();
