@@ -94,13 +94,14 @@ public class Level implements WorldObject {
     }
     private final List<WorldObject> ambience = new ArrayList<>();
     private sealed interface ObjectSnapshot permits CarryableState, TorchState, WallState,
-        EscalatorState, FallingPlatformState { }
+        EscalatorState, FallingPlatformState, LadderState { }
     private record CarryableState(Carryable.Snapshot value) implements ObjectSnapshot { }
     private record TorchState(float x, float y, int intensity, boolean burning,
                               boolean removed) implements ObjectSnapshot { }
     private record WallState(boolean active, boolean removed) implements ObjectSnapshot { }
     private record EscalatorState(Escalator.Snapshot value) implements ObjectSnapshot { }
     private record FallingPlatformState(FallingPlatform.Snapshot value) implements ObjectSnapshot { }
+    private record LadderState(Ladder.Snapshot value) implements ObjectSnapshot { }
 
     /** One bounded secured entry per room, including immutable snapshots of mutable world owners. */
     private record Visit(Map<Integer, Enemy<?>> enemies, Set<Integer> defeated,
@@ -339,7 +340,8 @@ public class Level implements WorldObject {
         for (TiledObject o : map.layer("SpawnPoints")) {
             int owner = roomLayout.owner(o);
             if ("Trigger".equals(o.type)) for (TiledObject target : map.layer("SpawnPoints")) {
-                if (("Actionable".equals(target.type) || "Escalator".equals(target.type))
+                if (("Actionable".equals(target.type) || "Escalator".equals(target.type)
+                    || "Ladder".equals(target.type))
                     && o.name.equals(target.name) && roomLayout.owner(target) != owner)
                     throw new IllegalArgumentException("Trigger crosses room boundary: " + o.name);
             }
@@ -441,6 +443,7 @@ public class Level implements WorldObject {
         if (owner instanceof Wall wall) return new WallState(wall.isActive(), wall.isRemoved());
         if (owner instanceof Escalator escalator) return new EscalatorState(escalator.snapshot());
         if (owner instanceof FallingPlatform platform) return new FallingPlatformState(platform.snapshot());
+        if (owner instanceof Ladder ladder) return new LadderState(ladder.snapshot());
         return null;
     }
 
@@ -462,6 +465,8 @@ public class Level implements WorldObject {
                 escalator.restore(state.value());
             } else if (owner instanceof FallingPlatform platform && snapshot instanceof FallingPlatformState state) {
                 platform.restore(state.value());
+            } else if (owner instanceof Ladder ladder && snapshot instanceof LadderState state) {
+                ladder.restore(state.value());
             }
         });
         roomStateOwners.forEach((id, owner) -> {
@@ -566,9 +571,14 @@ public class Level implements WorldObject {
                 }
                 case "Actionable" -> spawnActionable(o);
                 case "Ladder" -> {
-                    Ladder ladder = new Ladder(assets, o.x, o.y, o.width, o.height);
+                    Ladder ladder = new Ladder(assets, o.x, o.y, o.width, o.height, o.name,
+                        o.propFloat("dropDistance", 0));
                     ladders.add(ladder);
                     objects.add(ladder);
+                    // Resolve the ladder top before the floor platform underneath it, so a
+                    // falling player lands on the nearest support instead of the lower floor.
+                    collisionBlocks.add(0, ladder.topSupport());
+                    if (o.propFloat("dropDistance", 0) > 0) registerRoomStateOwner(o.id, ladder);
                 }
                 case "Escalator" -> {
                     Escalator escalator = new Escalator(assets, o.x, o.y, o.width, o.height,
@@ -593,10 +603,13 @@ public class Level implements WorldObject {
             if (roomLayout.owner(o) != currentRoom || !"Trigger".equals(o.type)
                 || !"Lever".equals(o.prop("appearance", ""))) continue;
             Trigger trigger = triggers.stream().filter(t -> t.id == o.id).findFirst().orElseThrow();
-            List<Torch> linked = objects.stream().filter(object -> object instanceof Torch torch
-                && trigger.targetId.equals(torch.getTargetId())).map(Torch.class::cast).toList();
-            if (linked.size() != 1) throw new IllegalArgumentException("Lever needs exactly one linked torch: " + o.name);
-            objects.add(new Lever(assets, trigger, linked.get(0)));
+            List<Actionable> linked = objects.stream().filter(object -> object instanceof Actionable actionable
+                && trigger.targetId.equals(actionable.getTargetId())).map(Actionable.class::cast).toList();
+            if (linked.size() != 1) throw new IllegalArgumentException("Lever needs exactly one linked mechanism: " + o.name);
+            Actionable target = linked.get(0);
+            if (target instanceof Torch torch) objects.add(new Lever(assets, trigger, torch));
+            else if (target instanceof Ladder ladder) objects.add(new Lever(assets, trigger, ladder::isLowered));
+            else throw new IllegalArgumentException("Lever has no visual state for linked mechanism: " + o.name);
         }
     }
 

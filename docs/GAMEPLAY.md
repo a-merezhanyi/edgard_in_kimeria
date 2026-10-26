@@ -29,9 +29,13 @@ one nearby object or puts it down; **Up + Action** operates one selected mechani
 Conflicting Up+Down consumes Action without doing anything. Holding Action never
 repeats an interaction. Ranged throws the held object without spending ammunition;
 with an empty hand it spends one fireball, if available.
-**Ladders:** Up beside a ladder (Down from its top surface) takes hold; Up/Down climb and
-Jump lets go. Ranged and mechanisms still work while attached; the sword and pick up/put down
-do not. Up/Down held with Action never climbs ([D28](DECISIONS.md#d28-vertical-ladders)).
+**Ladders:** Up beside a ladder (Down from its top surface) takes hold. At a grounded platform
+at least one third down the ladder, Up or Down takes hold; on its upper span and at the bottom,
+only Up does. The ladder's top is a one-way support. Up/Down climb, Left/Right steps off into
+normal movement, and Jump lets go with a hop. Ranged and mechanisms still work while attached;
+the sword and pick up/put down do not. The climbing animation advances only during vertical
+movement. Up/Down held
+with Action never climbs ([D28](DECISIONS.md#d28-vertical-ladders)).
 
 | Device | Normal | Left-handed (Options) |
 | --- | --- | --- |
@@ -58,6 +62,9 @@ Target eligibility governs this rule even if the held look direction hides the
 other direction's teaching label, or a later room omits teaching text.
 All devices use their active movement directions; mirrored gamepad action D-pad
 buttons never double as look directions.
+When an eligible mechanism or carryable is selected and outlined, standing look is
+suppressed until the outline disappears; an existing inspection returns to the ordinary
+camera target over 0.2 s ([D29](DECISIONS.md#d29-interaction-outline-takes-priority-over-standing-look)).
 
 **Esc/Start** pauses. Menus: arrows/Tab navigate, Enter/Space/A confirm, Esc/B back;
 Esc/B/Start resumes the pause menu. Debug keys F1 colliders, F2 invulnerability,
