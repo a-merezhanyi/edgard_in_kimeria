@@ -75,7 +75,9 @@ public class Player extends Actor<Player.State> implements CollideBody {
     private static final float LADDER_REGRAB_SECONDS = 0.25f;
     /** Feet within this distance of a ladder's top surface count as standing on it (descent entry). */
     private static final float LADDER_TOP_REACH = 2f;
-    private record LadderEntry(Ladder ladder, boolean descending) { }
+    /** The first grounded intermediate platform is slightly above half-height in the authored room. */
+    private static final float LADDER_BIDIRECTIONAL_ENTRY_FRACTION = 1f / 3f;
+    private record LadderEntry(Ladder ladder, boolean canClimbUp, boolean canClimbDown) { }
 
     private final GameContext game;
     private Level level;
@@ -223,6 +225,8 @@ public class Player extends Actor<Player.State> implements CollideBody {
 
         readInput();
         if (!game.isGameStarted()) return;
+        boolean wasOnLadder = ladder != null;
+        if (ladder != null && horizontalMovement != 0) releaseLadder();
         updateLadderCooldown(dt);
         tryGrabLadder();
 
@@ -248,8 +252,9 @@ public class Player extends Actor<Player.State> implements CollideBody {
         // Give pickup/activation chords extra time before inspection moves their target.
         // Use real eligibility: pressing Up can hide the pickup label without changing reach.
         boolean interactionAvailable = inspecting && (selectedCarryable() != null || selectedMechanism() != null);
-        look.update(stepDt, inspecting ? gameplayInput.lookDirection() : 0,
-            gameplayInput.verticalHeld(), interactionAvailable);
+        boolean interactionHighlighted = interactionFeedbackTarget() != null;
+        int lookDirection = inspecting && !interactionHighlighted ? gameplayInput.lookDirection() : 0;
+        look.update(stepDt, lookDirection, gameplayInput.verticalHeld(), interactionAvailable && !interactionHighlighted);
         previousFeetY = position.y + hitbox.offsetY + hitbox.height;
         previousBodyX = position.x + hitbox.offsetX;
         checkAttackCollisions(stepDt);
@@ -264,6 +269,7 @@ public class Player extends Actor<Player.State> implements CollideBody {
         }
         // Landing or grabbing a wall can make a buffered press usable in this very frame.
         tryJump(0f);
+        if (wasOnLadder && ladder == null) updatePlayerState();
         checkGameplayOverlaps();
 
         updateCameraPosition();
@@ -283,15 +289,23 @@ public class Player extends Actor<Player.State> implements CollideBody {
         else if (gameplayInput.verticalMovement() == 0) verticalSpentOnAction = true;
     }
 
-    /** Where Up (ascending) or Down (descending) would take hold, ignoring input; null when no ladder is in reach. */
+    /** Which vertical directions can take hold at the player's current ladder entry point. */
     private LadderEntry ladderEntry() {
         if (level == null || ladder != null) return null;
         Rectangle body = hitboxBounds();
         float feet = body.y + body.height, bodyCenter = body.x + body.width / 2f;
         for (Ladder candidate : level.ladders) {
             if (bodyCenter < candidate.getX() || bodyCenter > candidate.getX() + candidate.getWidth()) continue;
-            if (onGround && Math.abs(feet - candidate.topY()) <= LADDER_TOP_REACH) return new LadderEntry(candidate, true);
-            if (feet > candidate.topY() + LADDER_TOP_REACH && body.y < candidate.bottomY()) return new LadderEntry(candidate, false);
+            float top = candidate.topY(), bottom = candidate.bottomY();
+            if (onGround && Math.abs(feet - top) <= LADDER_TOP_REACH)
+                return new LadderEntry(candidate, false, true);
+            if (onGround && Math.abs(feet - bottom) <= LADDER_TOP_REACH)
+                return new LadderEntry(candidate, true, false);
+            if (onGround && feet > top + LADDER_TOP_REACH && feet < bottom - LADDER_TOP_REACH)
+                return new LadderEntry(candidate, true,
+                    feet - top >= candidate.getHeight() * LADDER_BIDIRECTIONAL_ENTRY_FRACTION);
+            if (feet > top + LADDER_TOP_REACH && body.y < bottom)
+                return new LadderEntry(candidate, true, false);
         }
         return null;
     }
@@ -301,7 +315,8 @@ public class Player extends Actor<Player.State> implements CollideBody {
         if (ladderRegrabTimer > 0 || verticalSpentOnAction || isAttacking || !canFight()) return;
         float vertical = ladderDirection();
         LadderEntry entry = ladderEntry();
-        if (entry == null || vertical == 0 || (vertical > 0) != entry.descending()) return;
+        if (entry == null || vertical == 0 || (vertical < 0 && !entry.canClimbUp())
+            || (vertical > 0 && !entry.canClimbDown())) return;
         Rectangle body = hitboxBounds();
         position.x += entry.ladder().centerX() - (body.x + body.width / 2f);
         ladder = entry.ladder();
@@ -596,8 +611,12 @@ public class Player extends Actor<Player.State> implements CollideBody {
     private String ladderHint() {
         LadderEntry entry = ladderEntry();
         if (entry == null) return "";
-        boolean descending = entry.descending();
-        return directionBinding(!descending, descending) + ": " + (descending ? Msg.CLIMB_DOWN : Msg.CLIMB).t(game.language());
+        if (entry.canClimbUp() && entry.canClimbDown())
+            return directionBinding(true, false) + ": " + Msg.CLIMB.t(game.language()) + "\n"
+                + directionBinding(false, true) + ": " + Msg.CLIMB_DOWN.t(game.language());
+        String directions = directionBinding(entry.canClimbUp(), entry.canClimbDown());
+        Msg action = entry.canClimbDown() && !entry.canClimbUp() ? Msg.CLIMB_DOWN : Msg.CLIMB;
+        return directions + ": " + action.t(game.language());
     }
 
     private String interactionHint() {

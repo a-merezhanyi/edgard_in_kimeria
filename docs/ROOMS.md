@@ -302,7 +302,7 @@ layer offset that this text already includes in the visible position).
 | 192 | YellowMob (id 50), patrol 128–208, beside a one-tile step | **Stomp, alone**. Jump on it from above, or K. |
 | 240–320 | Quicksand, vertical Bat (272); optional one-way steps to the coins/Chicken | Hazard + Bat; not a taught mechanic |
 | 512–608 | Horizontal Bat (patrol now ends at about 608) and a second quicksand | Same, repeated |
-| 416–480 | **Ladder** (id 123, x 416, 240–320) up to a one-way ledge (id 122) under the Chicken | **Ladder, alone**: Up beside it takes hold; hint only in this room |
+| 416–480 | **Ladder** (id 123, initially x 416, 208–288; lever lowers it to 240–320) beside the one-way ledge (id 122) under the Chicken | **Ladder and lever**: Up beside it takes hold; the nearby lever raises and lowers it; hints only in this room |
 | 656 | **Bomb** (id 54), moved from 128 | **Bomb, alone**: flat ground, 0.8 s warning (1.2 s with Assist), 64 px blast |
 | 832 | YellowMob (id 16), aggro zone 752–896 | Stomp repeated, first light combination: leave the blast, then meet the mob |
 | 912, 992 | Two tall walls | Wall jump |
@@ -534,7 +534,7 @@ the boss-room exit. This is not a human readability/balance playtest, an unassis
 complete run, or a desktop-renderer check. Manual pickup-hint/second-level readability
 acceptance remains in [PRE_RELEASE_TODO.md](PRE_RELEASE_TODO.md).
 
-## Ladder practice revision (#99)
+## Ladder practice revision (#99, historical)
 
 `forest.tmx` SHA-256 `bdd719de7af0ccc56302322777072f48e3316cd3ccffc1aaa621876d61cc32c3`. Added to `forest-entry`:
 one-way ledge collision 122 (416, 240, 64×16) with matching Background tiles, and `Ladder`
@@ -544,13 +544,39 @@ the ledge's surface, so the ladder is an alternative to the stair-and-jump route
 requirement. No enemy, coin or artifact was added, moved or removed; the required route and
 the existing replay gates are untouched (all three replay routes still pass).
 
-`Ladder` is a SpawnPoints type: width exactly one frame (16), height a whole number of
-frames, top edge on the surface the hero should step onto, bottom edge on the floor. The room
-owning its centre owns it, like every other object. It carries no state, so death, collection
-return and Restart Level simply rebuild it. Put support at both ends: the hero ignores terrain
-while attached and steps off wherever the ends are.
+At this revision `Ladder` was a SpawnPoints type: width exactly one frame (16), height a whole
+number of frames, top edge on the surface the hero should step onto, bottom edge on the floor.
+The room owning its centre owns it, like every other object. It carried no state at that time.
+Put support at both ends: the hero ignores terrain while attached and steps off wherever the ends are.
 
 Safe test route: from the entrance walk to x≈424, hold Up to the ledge (about 1.2 s), step
 to the Chicken, then come back with Down from the ledge's left end or by jumping off. The
 nearest threat is the horizontal Bat (id 43), whose patrol begins about 64 px right of the
 ladder foot; it is not a taught mechanic here. This is a scripted check, not a human playtest.
+
+## Toggle ladder update (2026-10-26)
+
+Current `forest.tmx` SHA-256: `df609760fe2f15f8d34995117c579c99ab19052fee0819b4295a1b3af6827a2a`.
+The first-room ladder starts 32 px (two 16 px tiles) above its former position. Trigger 124,
+named `first-ladder`, places a lever beside it on the floor. Each interaction animates the
+ladder between the raised y=208–288 span and its former lowered y=240–320 span at 160 px/s;
+the climbable bounds track the sprite throughout. The lowered position reaches the floor and
+aligns its top with ledge 122. The ladder position and switch state are included in room
+snapshots, so death rolls back to the latest secured state and Restart Level restores the raised
+position.
+
+The replay measurements above and `RoomReplayTest` results refer to earlier map hashes and do
+not measure this lever route. A fresh required-route and retry measurement for this map revision
+is pending; the build environment could not start Gradle (wrapper cache access was denied, and
+the installed Gradle could not load its macOS native library). No scripted or human route result
+is claimed for this update.
+
+### Ladder support and midpoint entry (2026-10-26)
+
+The map hash is unchanged. The ladder's top now has a one-way support that follows its
+animated position, so climbing to the top leaves the hero standing instead of dropping to the
+next platform. From a grounded intermediate platform at least one third down the ladder, Up
+and Down both grab the rungs and the first-room hint shows separate lines for both directions.
+The upper span and bottom accept
+Up; the top surface accepts Down. This behavior change has not been included in route timing or
+automated/physical play checks yet. See [D28](DECISIONS.md#d28-vertical-ladders).

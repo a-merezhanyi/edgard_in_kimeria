@@ -44,6 +44,10 @@ Target eligibility governs this rule even if the held look direction hides the
 other direction's teaching label, or a later room omits teaching text.
 All devices use their active movement directions; mirrored gamepad action D-pad
 buttons never double as look directions.
+When an eligible mechanism or carryable is selected and its interaction outline is
+visible, that selection suppresses standing look and vertical camera inspection. If
+inspection was already underway, it returns to the ordinary camera target over 0.2 s
+([D29](DECISIONS.md#d29-interaction-outline-takes-priority-over-standing-look)).
 
 ## Bindings and feedback
 
@@ -293,8 +297,10 @@ Rules and rationale: [D28](DECISIONS.md#d28-vertical-ladders). Implemented 2026-
 | Situation | Up / Down | Action | Ranged | Jump |
 | --- | --- | --- | --- | --- |
 | Beside rungs, on the ground or airborne | Up takes hold (climb) | Sword as usual | As usual | As usual |
+| Grounded on the upper span or at the bottom | Up takes hold; Down does nothing | Sword as usual | As usual | As usual |
+| Grounded on an intermediate platform at least one third down the ladder | Up or Down takes hold (climb); hint shows separate `Up: Climb` and `Down: Climb down` lines | Sword as usual | As usual | As usual |
 | On the top surface | Down takes hold (descend); Up does nothing | Sword as usual | As usual | As usual |
-| Attached | Climb at 70 px/s; both ends step off | Does not swing; no pick up/put down | Throws a held object or spends a fireball; keeps the grip | Lets go with a 0.7× hop |
+| Attached | Up/Down climb at 70 px/s; Left/Right releases the ladder and moves normally; both ends step off | Does not swing; no pick up/put down | Throws a held object or spends a fireball; keeps the grip | Lets go with a 0.7× hop |
 | Up/Down + Action, anywhere | Not climbing: Action owns the direction | Operates a mechanism in reach (Up) | | |
 
 The direction held with an Action press stays spent until it is released, on the ground
@@ -309,3 +315,12 @@ and on the ladder with no climb after release, sword/pick up unavailable and ran
 while attached, jump-off with direction, gamepad stick, touch stick with an Action touch,
 and the first-room hint present only in the first Forest room. Not checked: a physical
 controller, a physical multitouch phone, and novice comprehension.
+
+**Accepted follow-up (2026-10-26):** The ladder top now has a one-way support that follows
+the moving sprite, so reaching its top leaves Edgard standing there. A grounded midpoint
+platform at least one third down the ladder accepts both vertical directions and shows separate `Up: Climb` and `Down: Climb down`
+lines; the upper span and bottom accept Up, while the top surface accepts Down. Left/Right
+releases the ladder, and the climbing animation advances only during vertical movement.
+Eligible target outlines suppress
+standing-look camera movement (D29). These follow-up changes have not yet been exercised by
+the automated or physical-device checks recorded above.

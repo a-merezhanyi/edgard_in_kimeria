@@ -648,6 +648,12 @@ Authored checkpoints cannot bypass boss defeat or its victory walk. See [BOSS.md
   Author clarification: while standing at a pickup/activation target, wait 1 s
   before inspection so its directional interaction can be entered first.
 
+  **2026-10-26 interaction-focus update:** When Up/Down selects an eligible mechanism
+  or carryable and its interaction outline is visible, that target owns the vertical
+  input. Standing inspection is suppressed for as long as the outline remains visible;
+  if an inspection was already underway, cancel it and return the camera to its ordinary
+  target using the existing 0.2-second return.
+
 <a id="d26-observe-plan-before-committing"></a>
 
 ## D26. Observe and plan before committing
@@ -721,15 +727,19 @@ Authored checkpoints cannot bypass boss defeat or its victory walk. See [BOSS.md
 
 - **Status:** Accepted and implemented for the Mechanics MVP, 2026-10-25 ([#99](https://github.com/jlogicgames/edgard_in_kimeria/issues/99)).
 - **Decision:** A ladder is an authored `Ladder` rectangle, one 16 px frame wide and a whole
-  number of 16 px frames tall. Its top edge is the surface the hero steps onto and its bottom
-  edge is where the hero steps off. The ladder passes through any one-way platform at its top;
-  while attached the hero ignores terrain, so authors must put support at both ends.
+  number of 16 px frames tall. Its top edge is a one-way support where the hero can stand;
+  its bottom edge is where the hero steps off. The ladder passes through any one-way platform
+  at its top; while attached the hero ignores terrain, so authors must put support at both ends.
 - **Entering:** Held Up takes hold of a ladder whose rungs the hero's body centre is over, from
   the ground or in the air, once the feet are more than 2 px below the top surface. Held Down
-  takes hold only from the ground at the top surface. The hero is centred on the rungs and
-  gravity and horizontal movement stop. Up/Down held with Action, or released out of a chord, never enters.
+  takes hold from the top surface. From a grounded intermediate platform at least one third
+  down the ladder, either direction takes hold; on the upper span and in the air, only Up does.
+  At the bottom, only Up does. The hero is centred on the rungs and gravity and horizontal movement stop.
+  Up/Down held with Action, or released out of a chord, never enters.
 - **Climbing:** Up/Down climb at 70 logical px/s, and the pose holds still while the hero does.
-  Horizontal input does not leave a ladder. Reaching the top or bottom steps off onto that surface.
+  The climbing animation advances only while Up/Down moves the hero. Left/Right releases the
+  ladder and resumes normal horizontal movement; leaving the ladder returns to the normal movement
+  animation. Reaching the top or bottom steps off onto that surface.
 - **Jumping off:** A fresh Jump press lets go with a 0.7× hop; the held horizontal direction
   carries the hero away as in any airborne jump. A released ladder is ignored for 0.25 s so
   a held Up cannot snatch it straight back.
@@ -741,13 +751,29 @@ Authored checkpoints cannot bypass boss defeat or its victory walk. See [BOSS.md
   input is zero, and it stays spent until released, so one press can climb or operate, never both.
   Releasing Action while still holding Up does not climb; press Up again.
 - **Teaching:** Only the first Forest room teaches ([D24](#d24-the-whole-first-room-teaches-including-mechanisms-while-carrying)):
-  beside a ladder's rungs the hint reads `Up: Climb`, from its top surface `Down: Climb down`,
-  using the active device's label. A pickup or mechanism hint takes precedence. Nothing is shown
-  once attached, and later rooms do not repeat it.
+  beside a ladder's rungs the hint reads `Up: Climb`; at a grounded intermediate platform it shows
+  separate `Up: Climb` and `Down: Climb down` lines; from its top surface it reads
+  `Down: Climb down`. Hints use the active
+  device's label. A pickup or mechanism hint takes precedence. Nothing is shown once attached,
+  and later rooms do not repeat it.
 - **Why:** Clear, rule-of-thumb arbitration; Action and vertical input already share one chord
-  language (D18), so the ladder needed only a rule for who owns Up/Down. Free sideways exit would
-  drop the hero off a ladder whenever a stick drifts; Jump is the deliberate release.
-- **Not decided:** Double jump on ladders (#110), wind on ladders (#108/#109), hanging ladders
-  lowered by a mechanism (#102), and a dedicated climbing animation: the existing raised-arms
+  language (D18), so the ladder needed a rule for who owns Up/Down. Sideways exit is deliberate
+  through Left/Right; Jump remains the deliberate hop away from the ladder.
+- **Not decided:** Double jump on ladders (#110), wind on ladders (#108/#109), and a dedicated
+  climbing animation: the existing raised-arms
   pose is reused until the author supplies art.
-- **Details:** [Directional controls](DIRECTIONAL_CONTROLS.md#ladders-99), [room authoring](ROOMS.md#ladder-practice-revision-99).
+- **Details:** [Directional controls](DIRECTIONAL_CONTROLS.md#ladders-99), [room authoring](ROOMS.md#ladder-practice-revision-99) and the [toggle ladder update](ROOMS.md#toggle-ladder-update-2026-10-26).
+
+## D29. Interaction outline takes priority over standing look
+
+- **Status:** Accepted by the author, 2026-10-26.
+- **Decision:** When Up/Down selects an eligible mechanism or carryable and the game draws
+  its interaction outline, suppress standing look and vertical camera inspection until that
+  outline disappears. If inspection was already active, cancel it and return to the ordinary
+  camera target with D25's existing 0.2-second easing. The outline and its usable target retain
+  the same interaction eligibility.
+- **Why:** The highlight tells the player which object will receive Action. Vertical camera
+  motion during that selection makes the target and hint drift while the player is deciding.
+- **Details:** [Standing look](#d25-standing-look-with-delayed-vertical-inspection),
+  [directional controls](DIRECTIONAL_CONTROLS.md#standing-look-updown-2026-10-23), and
+  [gameplay controls](GAMEPLAY.md#controls).

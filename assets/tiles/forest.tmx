@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<map version="1.10" tiledversion="1.12.1" orientation="orthogonal" renderorder="right-down" width="160" height="23" tilewidth="16" tileheight="16" infinite="0" nextlayerid="5" nextobjectid="124">
+<map version="1.10" tiledversion="1.12.1" orientation="orthogonal" renderorder="right-down" width="160" height="23" tilewidth="16" tileheight="16" infinite="0" nextlayerid="5" nextobjectid="125">
  <tileset firstgid="1" source="Forest.tsx"/>
  <layer id="1" name="Background" width="160" height="23">
   <data encoding="csv">
@@ -149,7 +149,16 @@
     <property name="type" value="Torch"/>
    </properties>
   </object>
-  <object id="123" name="first-ladder" type="Ladder" x="416" y="256" width="16" height="80"/>
+  <object id="123" name="first-ladder" type="Ladder" x="416" y="224" width="16" height="80">
+   <properties>
+    <property name="dropDistance" type="float" value="32"/>
+   </properties>
+  </object>
+  <object id="124" name="first-ladder" type="Trigger" x="448" y="320" width="16" height="16">
+   <properties>
+    <property name="appearance" value="Lever"/>
+   </properties>
+  </object>
   <object id="121" name="Fireball" type="FireballRefill" x="1824" y="320" width="16" height="16"/>
  </objectgroup>
  <objectgroup id="3" name="Collisions">
